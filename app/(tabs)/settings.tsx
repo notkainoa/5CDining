@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DietBadge from '@/components/DietBadge';
 import HallOrderList from '@/components/HallOrderList';
 import { orderedHalls } from '@/lib/diningHalls';
 import { usePrefs } from '@/lib/settings';
-import { useColorScheme } from '@/components/useColorScheme';
+import { Theme } from '@/constants/Theme';
 
 export default function SettingsScreen() {
   const prefs = usePrefs();
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
   const [scrollLocked, setScrollLocked] = useState(false);
   const [edgeDir, setEdgeDir] = useState<-1 | 0 | 1>(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -27,11 +26,11 @@ export default function SettingsScreen() {
   }, [edgeDir]);
 
   const c = {
-    bg: dark ? '#000' : '#F2F2F7',
-    card: dark ? '#1C1C1E' : '#fff',
-    text: dark ? '#fff' : '#111',
-    sub: dark ? '#AEAEB2' : '#666',
-    border: dark ? '#38383A' : '#E5E5EA',
+    bg: Theme.darkerGray,
+    card: Theme.white,
+    text: Theme.black,
+    sub: Theme.foodItem,
+    border: '#E5E5EA',
   };
 
   return (
@@ -45,13 +44,13 @@ export default function SettingsScreen() {
         scrollY.current = e.nativeEvent.contentOffset.y;
       }}
     >
-      <Text style={[styles.title, { color: c.text }]}>Settings</Text>
+      <Text style={styles.title}>Settings</Text>
 
       <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
         <Text style={[styles.section, { color: c.text }]}>Dining hall order</Text>
         <Text style={[styles.hint, { color: c.sub }]}>
-          Drag the ≡ handle to reorder. Order runs left to right in the bottom bar — the app opens
-          to the first one.
+          Drag the ≡ handle to reorder. Order is used in the dining hall menu. The app opens to the
+          first one.
         </Text>
         <HallOrderList
           key={prefs.loaded ? 'ready' : 'loading'}
@@ -60,7 +59,6 @@ export default function SettingsScreen() {
           onScrollLock={setScrollLocked}
           onEdgeScroll={setEdgeDir}
           scrollY={scrollY}
-          dark={dark}
         />
       </View>
 
@@ -68,7 +66,7 @@ export default function SettingsScreen() {
         <Text style={[styles.section, { color: c.text }]}>Search & favorites</Text>
         <Row
           label="Search page"
-          hint="Adds a search tab on the far left for finding dishes."
+          hint="Adds a search button in the bottom bar for finding dishes."
           value={prefs.searchEnabled}
           onToggle={() =>
             prefs.update(
@@ -96,6 +94,7 @@ export default function SettingsScreen() {
         </Text>
         <Row
           label="Vegan"
+          badge="vegan"
           hint="Highlights vegan dishes."
           value={prefs.veganOnly}
           onToggle={() => prefs.update({ veganOnly: !prefs.veganOnly })}
@@ -103,6 +102,7 @@ export default function SettingsScreen() {
         />
         <Row
           label="Vegetarian"
+          badge="vegetarian"
           hint="Highlights vegetarian (and vegan) dishes."
           value={prefs.vegetarianOnly}
           onToggle={() => prefs.update({ vegetarianOnly: !prefs.vegetarianOnly })}
@@ -148,6 +148,7 @@ export default function SettingsScreen() {
 
 function Row({
   label,
+  badge,
   hint,
   value,
   onToggle,
@@ -155,6 +156,7 @@ function Row({
   c,
 }: {
   label: string;
+  badge?: 'vegan' | 'vegetarian';
   hint: string;
   value: boolean;
   onToggle: () => void;
@@ -170,7 +172,10 @@ function Row({
       style={[styles.row, { borderTopColor: c.border }, disabled && styles.rowDisabled]}
     >
       <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: c.text }]}>{label}</Text>
+        <View style={styles.rowLabelRow}>
+          <Text style={[styles.rowLabel, { color: c.text }]}>{label}</Text>
+          {badge ? <DietBadge kind={badge} /> : null}
+        </View>
         <Text style={[styles.rowHint, { color: c.sub }]}>{hint}</Text>
       </View>
       <View style={[styles.switch, { backgroundColor: value ? '#34C759' : '#8E8E93' }]}>
@@ -183,7 +188,7 @@ function Row({
 const styles = StyleSheet.create({
   page: { flex: 1 },
   body: { padding: 16, gap: 12, paddingBottom: 32 },
-  title: { fontSize: 26, fontWeight: '800', marginTop: 8 },
+  title: { fontSize: 26, fontWeight: '800', marginTop: 8, color: Theme.white },
   card: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 8 },
   section: { fontSize: 17, fontWeight: '700' },
   hint: { fontSize: 13 },
@@ -196,6 +201,7 @@ const styles = StyleSheet.create({
   },
   rowDisabled: { opacity: 0.4 },
   rowText: { flex: 1, gap: 2 },
+  rowLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowLabel: { fontSize: 15, fontWeight: '600' },
   rowHint: { fontSize: 12 },
   switch: {

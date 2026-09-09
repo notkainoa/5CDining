@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { weekDates } from './dates';
 
 interface DayCtx {
@@ -9,9 +9,6 @@ interface DayCtx {
   /** Normalized name of the manually picked meal (e.g. "lunch"), or null if none yet. */
   mealName: string | null;
   selectMealName: (name: string) => void;
-  /** Measured height of the floating day bar (0 until measured). */
-  stripHeight: number;
-  setStripHeight: (h: number) => void;
 }
 
 const DayContext = createContext<DayCtx>({
@@ -21,8 +18,6 @@ const DayContext = createContext<DayCtx>({
   selectDate: () => {},
   mealName: null,
   selectMealName: () => {},
-  stripHeight: 0,
-  setStripHeight: () => {},
 });
 
 /** Meal identity across halls: case/whitespace-insensitive name. */
@@ -30,16 +25,11 @@ export function normalizeMealName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** Shared selected day across all hall pages — the date strip persists like the bottom bar. */
+/** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
   const days = useMemo(() => weekDates(), []);
   const [selected, setSelected] = useState(0);
   const [mealName, setMealName] = useState<string | null>(null);
-  const [stripHeight, setStripHeightState] = useState(0);
-  const setStripHeight = useCallback(
-    (h: number) => setStripHeightState((prev) => (prev === h ? prev : h)),
-    [],
-  );
   const value = useMemo<DayCtx>(
     () => ({
       days,
@@ -48,10 +38,8 @@ export function DayProvider({ children }: { children: ReactNode }) {
       selectDate: setSelected,
       mealName,
       selectMealName: (name: string) => setMealName(normalizeMealName(name)),
-      stripHeight,
-      setStripHeight,
     }),
-    [days, selected, mealName, stripHeight, setStripHeight],
+    [days, selected, mealName],
   );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }

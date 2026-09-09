@@ -2,7 +2,7 @@ export type HallId = 'mcconnell' | 'frary' | 'hoch' | 'malott' | 'collins' | 'fr
 
 export interface DiningHall {
   id: HallId;
-  /** 2-letter bottom-bar abbreviation (user-specified) */
+  /** 2-letter abbreviation (settings list + search) */
   abbr: string;
   /** Official display name from GET /v1/halls */
   name: string;
@@ -14,10 +14,8 @@ export interface DiningHall {
   logo: number;
   /** Show the logo on a white circle (for logos that clash with the header) */
   logoOnWhite: boolean;
-  /** School brand color (light mode header + tab) */
+  /** School brand color (header + hall picker) */
   color: string;
-  /** School brand color for dark mode */
-  colorDark: string;
   /** Text/icons drawn on top of the school color */
   onColor: string;
   sourceUrl: string;
@@ -26,7 +24,7 @@ export interface DiningHall {
 /**
  * Static dining-hall config. Pages are fixed — only date + menu are dynamic.
  * Names/colleges verified against GET /v1/halls (2026-09-07).
- * Bottom-bar order: MC FY HC MA CO FK OL + settings.
+ * Default hall-menu order: MC FY HC MA CO FK OL.
  */
 export const DINING_HALLS: DiningHall[] = [
   {
@@ -38,8 +36,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/pitzer.png'),
     logoOnWhite: true,
     badge: 'PZ',
-    color: '#F7821E',
-    colorDark: '#E3721D',
+    color: '#fd7e14',
     onColor: '#FFFFFF',
     sourceUrl: 'https://pitzer.cafebonappetit.com/',
   },
@@ -52,8 +49,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/pomona.png'),
     logoOnWhite: false,
     badge: 'PO',
-    color: '#3978DC',
-    colorDark: '#3865C8',
+    color: '#228be6',
     onColor: '#FFFFFF',
     sourceUrl: 'https://www.pomona.edu/administration/dining/menus/frary',
   },
@@ -66,8 +62,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/hmc.png'),
     logoOnWhite: false,
     badge: 'HM',
-    color: '#EAAA01',
-    colorDark: '#D69701',
+    color: '#fab005',
     onColor: '#FFFFFF',
     sourceUrl: 'https://hmc.sodexomyway.com/en-us/locations/hoch-shanahan-dining-commons',
   },
@@ -80,8 +75,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/scripps.png'),
     logoOnWhite: true,
     badge: 'SC',
-    color: '#4BA583',
-    colorDark: '#49916E',
+    color: '#40c057',
     onColor: '#FFFFFF',
     sourceUrl: 'https://scripps.cafebonappetit.com/',
   },
@@ -94,8 +88,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/cmc.png'),
     logoOnWhite: true,
     badge: 'CM',
-    color: '#DA2C46',
-    colorDark: '#C62D47',
+    color: '#e03131',
     onColor: '#FFFFFF',
     sourceUrl: 'https://collins-cmc.cafebonappetit.com/',
   },
@@ -108,8 +101,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/pomona.png'),
     logoOnWhite: false,
     badge: 'PO',
-    color: '#3978DC',
-    colorDark: '#3865C8',
+    color: '#228be6',
     onColor: '#FFFFFF',
     sourceUrl: 'https://www.pomona.edu/administration/dining/menus/frank',
   },
@@ -122,8 +114,7 @@ export const DINING_HALLS: DiningHall[] = [
     logo: require('../assets/images/pomona.png'),
     logoOnWhite: false,
     badge: 'PO',
-    color: '#3978DC',
-    colorDark: '#3865C8',
+    color: '#228be6',
     onColor: '#FFFFFF',
     sourceUrl: 'https://www.pomona.edu/administration/dining/menus/oldenborg',
   },

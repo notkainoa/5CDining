@@ -1,34 +1,45 @@
 import { StyleSheet, View } from 'react-native';
-import { Tabs, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Tabs, useRouter, useSegments, type Href } from 'expo-router';
+import { useCallback } from 'react';
 import DiningTabBar from '@/components/DiningTabBar';
-import DayStrip from '@/components/DayStrip';
+import { Theme } from '@/constants/Theme';
+import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
-import { HALL_BY_ID } from '@/lib/diningHalls';
 import { usePrefs } from '@/lib/settings';
+import { TabNavProvider } from '@/lib/tabNav';
 
 /**
  * Web layout: plain expo-router Tabs (no swipe — mouse-driven browsers don't
  * need it). Native uses _layout.tsx with the real paged NativePager.
- * The day strip renders once above Tabs on hall pages so it persists like
- * the bottom bar; hidden on search/settings.
  */
 export default function TabLayoutWeb() {
   return (
     <DayProvider>
-      <TabLayoutWebInner />
+      <DimProvider>
+        <TabLayoutWebInner />
+      </DimProvider>
     </DayProvider>
   );
 }
 
 function TabLayoutWebInner() {
-  const { searchEnabled } = usePrefs();
+  const { searchEnabled, hallOrder } = usePrefs();
   const segments = useSegments();
-  const activeName = segments[1] ?? '';
-  const showDayStrip = activeName in HALL_BY_ID;
+  const router = useRouter();
+  const activeKey = segments.at(1) ?? '';
+
+  const navigate = useCallback(
+    (name: string) => {
+      router.navigate(`/(tabs)/${name}` as Href);
+    },
+    [router],
+  );
+
   return (
-    <View style={styles.fill}>
-      {showDayStrip ? <DayStrip /> : null}
-      <View style={styles.fill}>
+    <TabNavProvider activeKey={activeKey} navigate={navigate} fallbackHall={hallOrder[0]}>
+      <View style={styles.shell}>
+        <StatusBar style="light" />
         <Tabs
           tabBar={(props) => <DiningTabBar {...props} />}
           screenOptions={{ headerShown: false }}
@@ -48,10 +59,10 @@ function TabLayoutWebInner() {
           <Tabs.Screen name="index" options={{ href: null }} />
         </Tabs>
       </View>
-    </View>
+    </TabNavProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
+  shell: { flex: 1, backgroundColor: Theme.darkerGray },
 });

@@ -15,7 +15,7 @@ import { todayInLA } from '@/lib/dates';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadSearchIndex, searchDishes, type DishGroup, type SearchHit } from '@/lib/search';
 import { favoriteId, usePrefs } from '@/lib/settings';
-import { useColorScheme } from '@/components/useColorScheme';
+import { Theme } from '@/constants/Theme';
 import HeartButton from '@/components/HeartButton';
 
 function dayKey(d: Date): string {
@@ -25,9 +25,6 @@ function dayKey(d: Date): string {
 export default function SearchScreen() {
   const prefs = usePrefs();
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
-
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState<SearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,11 +97,11 @@ export default function SearchScreen() {
   }, [index, prefs.favorites, favSet]);
 
   const c = {
-    bg: dark ? '#000' : '#F2F2F7',
-    card: dark ? '#1C1C1E' : '#fff',
-    text: dark ? '#fff' : '#111',
-    sub: dark ? '#AEAEB2' : '#666',
-    border: dark ? '#38383A' : '#E5E5EA',
+    bg: Theme.darkerGray,
+    card: Theme.white,
+    text: Theme.black,
+    sub: Theme.foodItem,
+    border: '#E5E5EA',
   };
 
   if (!prefs.searchEnabled) {
@@ -112,7 +109,7 @@ export default function SearchScreen() {
       <View style={[styles.page, { backgroundColor: c.bg }]}>
         <View style={styles.body}>
           <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.title, { color: c.text }]}>Search is off</Text>
+            <Text style={[styles.cardTitle, { color: c.text }]}>Search is off</Text>
             <Text style={[styles.hint, { color: c.sub }]}>
               Enable it in Settings to search dishes across all dining halls.
             </Text>
@@ -129,7 +126,7 @@ export default function SearchScreen() {
         contentContainerStyle={[styles.body, { paddingTop: insets.top + 16 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.title, { color: c.text }]}>Search</Text>
+        <Text style={styles.title}>Search</Text>
         <View style={[styles.searchBar, { backgroundColor: c.card, borderColor: c.border }]}>
           <Text style={[styles.searchIcon, { color: c.sub }]}>🔍</Text>
           <TextInput
@@ -154,27 +151,27 @@ export default function SearchScreen() {
           </View>
         ) : failed && index === null ? (
           <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.title, { color: c.text }]}>Couldn&apos;t load menus</Text>
+            <Text style={[styles.cardTitle, { color: c.text }]}>Couldn&apos;t load menus</Text>
             <Pressable onPress={load} style={styles.retry}>
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
           </View>
         ) : query.trim() ? (
           groups.length === 0 ? (
-            <Text style={[styles.hint, { color: c.sub }]}>No dishes match “{query.trim()}”.</Text>
+            <Text style={styles.pageHint}>No dishes match “{query.trim()}”.</Text>
           ) : (
             groups.map((g) => <DishCard key={g.id} group={g} c={c} />)
           )
         ) : prefs.favoritesEnabled ? (
           prefs.favorites.length === 0 ? (
-            <Text style={[styles.hint, { color: c.sub }]}>
+            <Text style={styles.pageHint}>
               Tap ♥ on any dish to save it here. Search above to find dishes across all halls.
             </Text>
           ) : (
             favGroups.map((g) => <DishCard key={g.id} group={g} c={c} />)
           )
         ) : (
-          <Text style={[styles.hint, { color: c.sub }]}>
+          <Text style={styles.pageHint}>
             Search dishes across all 7 dining halls, today and tomorrow.
           </Text>
         )}
@@ -236,8 +233,10 @@ function DishCard({ group, c }: { group: DishGroup; c: CardColors }) {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   body: { padding: 16, gap: 10, paddingBottom: 32 },
-  title: { fontSize: 26, fontWeight: '800', marginTop: 8 },
+  title: { fontSize: 26, fontWeight: '800', marginTop: 8, color: Theme.white },
+  cardTitle: { fontSize: 20, fontWeight: '800' },
   hint: { fontSize: 14 },
+  pageHint: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
   card: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
   searchBar: {
     flexDirection: 'row',

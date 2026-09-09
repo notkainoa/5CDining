@@ -16,8 +16,8 @@ export function todayInLA(): Date {
   return new Date(get('year'), get('month') - 1, get('day'));
 }
 
-/** Today + 7 days = 8 selectable dates (one week in advance). */
-export const DATE_WINDOW_DAYS = 8;
+/** Today + tomorrow + the next day. */
+export const DATE_WINDOW_DAYS = 3;
 
 export function weekDates(from: Date = todayInLA()): Date[] {
   return Array.from({ length: DATE_WINDOW_DAYS }, (_, i) => {
