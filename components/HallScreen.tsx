@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -168,7 +169,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
       <View
         style={[
           styles.school,
-          { backgroundColor: hall.color, marginTop: insets.top + 8 },
+          { backgroundColor: hall.color, marginTop: insets.top + (Platform.OS === 'web' ? 8 : 0) },
           picker ? styles.schoolFront : null,
         ]}
       >
