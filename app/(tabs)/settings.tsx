@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DietBadge from '@/components/DietBadge';
 import HallOrderList from '@/components/HallOrderList';
 import { orderedHalls } from '@/lib/diningHalls';
@@ -9,7 +8,6 @@ import { Theme } from '@/constants/Theme';
 
 export default function SettingsScreen() {
   const prefs = usePrefs();
-  const insets = useSafeAreaInsets();
   const [scrollLocked, setScrollLocked] = useState(false);
   const [edgeDir, setEdgeDir] = useState<-1 | 0 | 1>(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -37,7 +35,7 @@ export default function SettingsScreen() {
     <ScrollView
       ref={scrollRef}
       style={[styles.page, { backgroundColor: c.bg }]}
-      contentContainerStyle={[styles.body, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={styles.body}
       scrollEnabled={!scrollLocked}
       scrollEventThrottle={16}
       onScroll={(e) => {
@@ -49,7 +47,7 @@ export default function SettingsScreen() {
       <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
         <Text style={[styles.section, { color: c.text }]}>Dining hall order</Text>
         <Text style={[styles.hint, { color: c.sub }]}>
-          Drag the ≡ handle to reorder. Order is used in the dining hall menu. The app opens to the
+          Drag the ≡ handle to reorder. Order is used in the top hall bar. The app opens to the
           first one.
         </Text>
         <HallOrderList

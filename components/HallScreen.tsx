@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   isGlutenFree,
   matchesDiet,
@@ -25,13 +23,11 @@ import { Theme } from '@/constants/Theme';
 import { nowMinutesInLA } from '@/lib/dates';
 import { normalizeMealName, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
-import { HALL_BY_ID, orderedHalls, type HallId } from '@/lib/diningHalls';
-import { getCachedMenu, loadHallMenu, mealSummary } from '@/lib/menuCache';
+import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
+import { loadHallMenu } from '@/lib/menuCache';
 import { usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
-import { useTabNav } from '@/lib/tabNav';
 import DietBadge from '@/components/DietBadge';
-import HallPicker from '@/components/HallPicker';
 import HeartButton from '@/components/HeartButton';
 import MealPicker from '@/components/MealPicker';
 import SchoolLogo from '@/components/SchoolLogo';
@@ -39,11 +35,7 @@ import SchoolLogo from '@/components/SchoolLogo';
 export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
   const { selected, date, mealName, selectMealName } = useDay();
-  const { hallOrder } = usePrefs();
-  const { navigate } = useTabNav();
   const { arm, disarm } = useDim();
-  const insets = useSafeAreaInsets();
-  const halls = useMemo(() => orderedHalls(hallOrder), [hallOrder]);
 
   const [menu, setMenu] = useState<HallMenu | null>(null);
   const [closure, setClosure] = useState<HallClosure | null>(null);
@@ -51,8 +43,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openStations, setOpenStations] = useState<number[]>([]);
-  const [picker, setPicker] = useState<null | 'hall' | 'meal'>(null);
-  const [mealsByHall, setMealsByHall] = useState<Record<string, string>>({});
+  const [picker, setPicker] = useState<null | 'meal'>(null);
   const reqId = useRef(0);
 
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
@@ -124,31 +115,6 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     closePicker();
   };
 
-  const openHallPicker = () => {
-    if (picker === 'hall') {
-      closePicker();
-      return;
-    }
-    arm(closePicker);
-    setPicker('hall');
-    const seed: Record<string, string> = {};
-    for (const h of halls) {
-      const closed = getClosure(h.id, date);
-      seed[h.id] = closed ? 'Closed' : mealSummary(getCachedMenu(h.id, date));
-    }
-    setMealsByHall(seed);
-    void Promise.all(
-      halls.map(async (h) => {
-        if (seed[h.id]) return;
-        try {
-          seed[h.id] = mealSummary(await loadHallMenu(h.id, date));
-        } catch {
-          seed[h.id] = '';
-        }
-      }),
-    ).then(() => setMealsByHall({ ...seed }));
-  };
-
   const openMealPicker = () => {
     if (picker === 'meal') {
       closePicker();
@@ -167,48 +133,15 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         <Pressable style={styles.pageOverlay} onPress={closePicker} accessibilityLabel="Dismiss" />
       ) : null}
       <View
-        style={[
-          styles.school,
-          { backgroundColor: hall.color, marginTop: insets.top + (Platform.OS === 'web' ? 8 : 0) },
-          picker ? styles.schoolFront : null,
-        ]}
+        style={[styles.school, { backgroundColor: hall.color }, picker ? styles.schoolFront : null]}
       >
         {picker ? (
           <Pressable style={styles.overlay} onPress={closePicker} accessibilityLabel="Dismiss" />
         ) : null}
 
-        <View style={[styles.raise, picker === 'hall' && styles.raiseOn]} pointerEvents="box-none">
-          <View style={styles.headerRow} pointerEvents="box-none">
-            <Pressable
-              onPress={openHallPicker}
-              style={[styles.hallHit, picker === 'hall' && styles.triggerOn]}
-              accessibilityRole="button"
-              accessibilityLabel={`${hall.name}, choose dining hall`}
-            >
-              <Text style={styles.hallName}>{hall.name}</Text>
-              <Text style={styles.hallChev}>▾</Text>
-            </Pressable>
-            <Pressable
-              onPress={openHallPicker}
-              accessibilityRole="button"
-              accessibilityLabel={`${hall.college} logo, choose dining hall`}
-            >
-              <SchoolLogo hall={hall} size={52} />
-            </Pressable>
-          </View>
-          {picker === 'hall' ? (
-            <View style={styles.dropAbs} pointerEvents="box-none">
-              <HallPicker
-                halls={halls}
-                currentId={hallId}
-                mealsByHall={mealsByHall}
-                onSelect={(id) => {
-                  closePicker();
-                  navigate(id);
-                }}
-              />
-            </View>
-          ) : null}
+        <View style={styles.headerRow}>
+          <Text style={styles.hallName}>{hall.name}</Text>
+          <SchoolLogo hall={hall} size={52} />
         </View>
 
         <View
@@ -436,6 +369,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     marginHorizontal: 8,
+    marginTop: 4,
     marginBottom: 4,
     paddingTop: 10,
   },
@@ -450,9 +384,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: Theme.overlay,
     zIndex: 1,
-  },
-  raise: {
-    position: 'relative',
   },
   raiseOn: {
     zIndex: 2,
@@ -474,26 +405,12 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 12,
   },
-  hallHit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    gap: 8,
-  },
-  triggerOn: {
-    backgroundColor: Theme.trigger,
-    marginHorizontal: -8,
-    paddingHorizontal: 12,
-  },
   hallName: {
     color: Theme.white,
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  hallChev: { color: Theme.white, fontSize: 16, fontWeight: '700' },
   mealRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -509,6 +426,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 8,
     gap: 6,
+  },
+  triggerOn: {
+    backgroundColor: Theme.trigger,
+    marginHorizontal: -8,
+    paddingHorizontal: 12,
   },
   mealPillName: {
     color: Theme.white,

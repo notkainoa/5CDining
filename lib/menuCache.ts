@@ -1,4 +1,4 @@
-import { fetchHallMenu, shortMealName, type HallMenu } from './api';
+import { fetchHallMenu, type HallMenu } from './api';
 import type { HallId } from './diningHalls';
 
 const cache = new Map<string, HallMenu>();
@@ -23,10 +23,4 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
   const data = await fetchHallMenu(hall, date);
   setCachedMenu(hall, date, data);
   return data;
-}
-
-/** Compact meal list for the hall dropdown, e.g. "Breakfast, Lunch, Dinner". */
-export function mealSummary(menu: HallMenu | null | undefined): string {
-  if (!menu?.meals?.length) return '';
-  return menu.meals.map((m) => shortMealName(m.name)).join(', ');
 }

@@ -124,6 +124,12 @@ export const HALL_BY_ID: Record<HallId, DiningHall> = Object.fromEntries(
   DINING_HALLS.map((h) => [h.id, h]),
 ) as Record<HallId, DiningHall>;
 
+/** Single-line chip label. Hyphenated names (Hoch-Shanahan) keep the first part. */
+export function hallChipName(hall: DiningHall): string {
+  const cut = hall.name.indexOf('-');
+  return cut === -1 ? hall.name : hall.name.slice(0, cut);
+}
+
 /** Halls sorted per the user's order (unknown ids dropped, missing appended). */
 export function orderedHalls(order: HallId[]): DiningHall[] {
   const seen = new Set<HallId>();

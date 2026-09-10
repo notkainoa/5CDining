@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { todayInLA } from '@/lib/dates';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
@@ -24,7 +23,6 @@ function dayKey(d: Date): string {
 
 export default function SearchScreen() {
   const prefs = usePrefs();
-  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState<SearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -123,7 +121,7 @@ export default function SearchScreen() {
     <View style={[styles.page, { backgroundColor: c.bg }]}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.body, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Search</Text>

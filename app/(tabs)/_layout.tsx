@@ -4,6 +4,7 @@ import { useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import NativePager, { type NativePagerHandle } from '@/components/NativePager';
 import DiningTabBar from '@/components/DiningTabBar';
+import HallTabBar from '@/components/HallTabBar';
 import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
@@ -109,6 +110,7 @@ function TabLayoutNative() {
     <TabNavProvider activeKey={activeKey} navigate={navigate} fallbackHall={hallOrder[0]}>
       <View style={styles.shell}>
         <StatusBar style="light" />
+        <HallTabBar />
         <NativePager
           ref={pagerRef}
           initialPage={Math.max(0, order.indexOf(initialKey))}
