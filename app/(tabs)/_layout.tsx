@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import NativePager, { type NativePagerHandle } from '@/components/NativePager';
 import DiningTabBar from '@/components/DiningTabBar';
 import HallTabBar from '@/components/HallTabBar';
+import { AppShell, HallChrome } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
@@ -59,7 +60,6 @@ function TabLayoutNative() {
     return order.includes(name) ? name : order[0];
   });
   const [activeKey, setActiveKey] = useState(initialKey);
-  const index = Math.max(0, order.indexOf(activeKey));
 
   const handlePageSelected = useCallback(
     (i: number) => {
@@ -104,25 +104,24 @@ function TabLayoutNative() {
     pagerRef.current?.setPageWithoutAnimation(Math.max(0, order.indexOf(activeKey)));
   }, [order, activeKey]);
 
-  if (!loaded) return <View style={styles.fill} />;
+  if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 
   return (
     <TabNavProvider activeKey={activeKey} navigate={navigate} fallbackHall={hallOrder[0]}>
-      <View style={styles.shell}>
+      <AppShell>
         <StatusBar style="light" />
-        <HallTabBar />
-        <NativePager
-          ref={pagerRef}
-          initialPage={Math.max(0, order.indexOf(initialKey))}
-          onPageSelected={handlePageSelected}
-        >
-          {pages}
-        </NativePager>
-        <DiningTabBar
-          state={{ index, routes: order.map((name) => ({ name })) }}
-          navigation={{ navigate }}
-        />
-      </View>
+        <HallChrome>
+          <HallTabBar />
+          <NativePager
+            ref={pagerRef}
+            initialPage={Math.max(0, order.indexOf(initialKey))}
+            onPageSelected={handlePageSelected}
+          >
+            {pages}
+          </NativePager>
+        </HallChrome>
+        <DiningTabBar />
+      </AppShell>
     </TabNavProvider>
   );
 }
@@ -139,5 +138,5 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  shell: { flex: 1, backgroundColor: Theme.darkerGray },
+  boot: { backgroundColor: Theme.black },
 });

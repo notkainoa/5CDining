@@ -27,13 +27,13 @@ export function weekDates(from: Date = todayInLA()): Date[] {
   });
 }
 
+const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function dateCardLabels(date: Date, index: number): { top: string; bottom: string } {
-  const bottom = `${date.getMonth() + 1}/${date.getDate()}`;
-  if (index === 0) return { top: 'Today', bottom };
-  if (index === 1) return { top: 'Tomorrow', bottom };
-  return { top: WEEKDAY_SHORT[date.getDay()], bottom };
+export function dateCardLabel(date: Date, index: number, compact = false): string {
+  if (index === 0) return 'Today';
+  if (index === 1) return compact ? 'Tmr' : 'Tomorrow';
+  return (compact ? WEEKDAY_SHORT : WEEKDAY)[date.getDay()];
 }
 
 export function sameDay(a: Date, b: Date): boolean {

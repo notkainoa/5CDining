@@ -18,18 +18,19 @@ import { HALL_BY_ID, hallChipName, orderedHalls, type DiningHall } from '@/lib/d
 import { useDim } from '@/lib/dim';
 import { usePrefs } from '@/lib/settings';
 import { useTabNav } from '@/lib/tabNav';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Horizontal inset of the hall card below the bar (HallScreen `school` marginHorizontal). */
 const HALL_INSET = 8;
 const H_PAD = HALL_INSET;
 const GAP = 8;
-const CHIP_H = 36;
+const CHIP_H = 40;
 const CHIP_RADIUS = 14;
-/** Height of the bridge that joins an attached chip to the hall card. */
-const STEM = 10;
-/** Radius of the concave fillets where the bridge meets the card's top edge. */
-const EAR = 10;
+/**
+ * Height of the bridge that joins an attached chip to the hall card.
+ */
+const STEM = HALL_INSET;
+/** Concave fillet. Matches the hall card's 24pt bottom corners. */
+const EAR = 24;
 /**
  * Radius of the fillet in the gutter where the card's side meets the underside
  * of an overhanging chip. Fits inside the gutter.
@@ -101,12 +102,7 @@ function earEase(p: number): number {
   return Math.pow(clamp01(p), 1.75);
 }
 
-function neededScrollX(
-  x: number,
-  w: number,
-  barW: number,
-  scrollX: number,
-): number | null {
+function neededScrollX(x: number, w: number, barW: number, scrollX: number): number | null {
   'worklet';
   if (barW === 0) return null;
   const left = scrollX;
@@ -204,7 +200,6 @@ function gutterEarR(o: number): number {
 }
 
 export default function HallTabBar() {
-  const insets = useSafeAreaInsets();
   const { hallOrder } = usePrefs();
   const { activeKey, navigate } = useTabNav();
   const { dimmed, dismiss } = useDim();
@@ -249,9 +244,12 @@ export default function HallTabBar() {
     [scrollX, barW, layouts, activeId, blobL, blobR, blobH, fromCol, toCol, colorT, squash],
   );
 
-  const applyScroll = useCallback((x: number) => {
-    scrollRef.current?.scrollTo({ x, y: 0, animated: false });
-  }, [scrollRef]);
+  const applyScroll = useCallback(
+    (x: number) => {
+      scrollRef.current?.scrollTo({ x, y: 0, animated: false });
+    },
+    [scrollRef],
+  );
 
   useEffect(() => {
     activeId.set(activeHall);
@@ -398,15 +396,17 @@ export default function HallTabBar() {
   const chrome = dimmed ? DIMMED_CHROME : Theme.darkerGray;
 
   return (
-    <View style={[styles.wrap, { paddingTop: Math.max(insets.top, 8) }]}>
+    <View style={styles.wrap}>
       <CornerMask side="left" radius={maskL} color={chrome} />
       <CornerMask side="right" radius={maskR} color={chrome} />
       <GutterEar side="left" state={state} chrome={chrome} />
       <GutterEar side="right" state={state} chrome={chrome} />
+      <JoinStrip state={state} chrome={chrome} />
       <Animated.ScrollView
         ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.scroller}
         contentContainerStyle={styles.row}
         onLayout={(e) => {
           const w = e.nativeEvent.layout.width;
@@ -421,7 +421,7 @@ export default function HallTabBar() {
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        <LiquidBlob state={state} chrome={chrome} />
+        <LiquidBlob state={state} />
         {halls.map((h) => (
           <Chip
             key={h.id}
@@ -439,11 +439,9 @@ export default function HallTabBar() {
   );
 }
 
-function LiquidBlob({ state, chrome }: { state: BarState; chrome: string }) {
+function LiquidBlob({ state }: { state: BarState }) {
   const geo = useDerivedValue(() => blobGeo(state));
   const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
-  const earL = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dl) : 0));
-  const earR = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dr) : 0));
 
   const boxStyle = useAnimatedStyle(() => {
     const w = Math.max(0, state.blobR.value - state.blobL.value);
@@ -466,6 +464,21 @@ function LiquidBlob({ state, chrome }: { state: BarState; chrome: string }) {
     };
   });
 
+  return <Animated.View pointerEvents="none" style={[styles.blob, boxStyle]} />;
+}
+
+function JoinStrip({ state, chrome }: { state: BarState; chrome: string }) {
+  const geo = useDerivedValue(() => blobGeo(state));
+  const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
+  const earL = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dl) : 0));
+  const earR = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dr) : 0));
+
+  const stripStyle = useAnimatedStyle(() => ({
+    left: state.blobL.value - state.scrollX.value,
+    width: Math.max(0, state.blobR.value - state.blobL.value),
+    opacity: p.value > 0.02 ? 1 : 0,
+  }));
+
   const earLStyle = useAnimatedStyle(() => {
     const s = earL.value;
     return { width: s, height: s, left: -s, backgroundColor: blobColorOf(state) };
@@ -484,7 +497,7 @@ function LiquidBlob({ state, chrome }: { state: BarState; chrome: string }) {
   });
 
   return (
-    <Animated.View style={[styles.blob, boxStyle]}>
+    <Animated.View pointerEvents="none" style={[styles.joinStrip, stripStyle]}>
       <Animated.View style={[styles.ear, earLStyle]}>
         <Animated.View style={[styles.earCut, { backgroundColor: chrome }, earLCut]} />
       </Animated.View>
@@ -615,7 +628,8 @@ function CornerMask({
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: Theme.darkerGray,
+    backgroundColor: 'transparent',
+    paddingTop: 8,
     zIndex: 10,
     overflow: 'visible',
   },
@@ -627,6 +641,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: Theme.overlay,
     zIndex: 11,
+  },
+  scroller: {
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   row: {
     flexDirection: 'row',
@@ -657,13 +675,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  joinStrip: {
+    position: 'absolute',
+    bottom: 0,
+    height: STEM,
+    overflow: 'visible',
+    zIndex: 0,
   },
   ear: {
     position: 'absolute',
     bottom: 0,
     overflow: 'hidden',
+    // Android only clips overflow when a radius is set.
+    borderRadius: 0.1,
   },
   earCut: {
     position: 'absolute',

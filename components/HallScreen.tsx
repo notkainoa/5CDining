@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginHorizontal: 8,
     marginTop: 0,
-    marginBottom: 4,
+    marginBottom: 0,
     paddingTop: 10,
   },
   schoolFront: {

@@ -52,7 +52,7 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen
             name="(tabs)"
-            options={{ headerShown: false, contentStyle: { backgroundColor: '#1e1e1e' } }}
+            options={{ headerShown: false, contentStyle: { backgroundColor: '#000000' } }}
           />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
