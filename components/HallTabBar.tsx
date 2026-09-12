@@ -32,17 +32,17 @@ const STEM = HALL_INSET;
 /** Concave fillet. Matches the hall card's 24pt bottom corners. */
 const EAR = 24;
 /**
- * Radius of the fillet in the gutter where the card's side meets the underside
- * of an overhanging chip. Fits inside the gutter.
+ * Underside fillet where an overhanging chip meets the hall card's side.
+ * Same 24 as the hall card; the gray gutter will clip it, and that is fine.
  */
-const GUTTER_EAR = HALL_INSET;
+const GUTTER_EAR = EAR;
 /** Radius of the hall card's top corners. Drawn here as masks so they can un-round. */
 const CORNER = 18;
 /**
- * Chip/card horizontal overlap at which the bridge lets go. Near zero so the
- * chip hangs on right up to the card's corner before popping off.
+ * Stay attached until the last pixel of the chip still overlaps the hall
+ * card. Lets go when that edge lines up with the card's edge.
  */
-const DETACH_W = 2;
+const DETACH_W = 1;
 /** Theme.darkerGray under Theme.overlay, for the masks while the bar is dimmed. */
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
@@ -191,12 +191,12 @@ function cornerR(d: number): number {
 
 function overhangStemR(o: number): number {
   'worklet';
-  return Math.min(STEM, Math.max(0, o) * (STEM / (STEM + GUTTER_EAR)));
+  return Math.min(STEM, Math.max(0, o));
 }
 
 function gutterEarR(o: number): number {
   'worklet';
-  return Math.min(GUTTER_EAR, Math.max(0, o) * (GUTTER_EAR / (STEM + GUTTER_EAR)));
+  return Math.min(GUTTER_EAR, Math.max(0, o));
 }
 
 export default function HallTabBar() {
@@ -700,6 +700,7 @@ const styles = StyleSheet.create({
     top: '100%',
     overflow: 'hidden',
     pointerEvents: 'none',
+    borderRadius: 0.1,
   },
   gutterEarCut: {
     position: 'absolute',
