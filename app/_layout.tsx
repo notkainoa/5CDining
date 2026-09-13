@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { Theme } from '@/constants/Theme';
 import { SettingsProvider } from '@/lib/settings';
 
 export {
@@ -52,7 +53,7 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen
             name="(tabs)"
-            options={{ headerShown: false, contentStyle: { backgroundColor: '#000000' } }}
+            options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
           />
           <Stack.Screen
             name="search"
@@ -61,7 +62,7 @@ function RootLayoutNav() {
               animation: 'default',
               gestureEnabled: true,
               fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: '#000000' },
+              contentStyle: { backgroundColor: Theme.black },
             }}
           />
           <Stack.Screen
@@ -71,7 +72,7 @@ function RootLayoutNav() {
               animation: 'default',
               gestureEnabled: true,
               fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: '#000000' },
+              contentStyle: { backgroundColor: Theme.black },
             }}
           />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

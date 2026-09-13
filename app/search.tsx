@@ -23,7 +23,7 @@ import HeartButton from '@/components/HeartButton';
 import { Theme } from '@/constants/Theme';
 import { todayInLA } from '@/lib/dates';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
-import { loadSearchIndex, searchDishes, type DishGroup, type SearchHit } from '@/lib/search';
+import { compareOccurrences, loadSearchIndex, searchDishes, type DishGroup, type SearchHit } from '@/lib/search';
 import { favoriteId, SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
@@ -105,9 +105,7 @@ function SearchScreenInner() {
     return [...byId.values()]
       .map((g) => ({
         ...g,
-        occ: g.occ.sort((a, b) =>
-          a.day === b.day ? a.hallName.localeCompare(b.hallName) : a.day === 'Today' ? -1 : 1,
-        ),
+        occ: g.occ.sort(compareOccurrences),
       }))
       .sort((a, b) => a.dish.localeCompare(b.dish));
   }, [index, prefs.favorites, favSet]);
@@ -239,12 +237,13 @@ function SearchScreenInner() {
 type CardColors = { text: string; sub: string; card: string; border: string };
 
 function DishCard({ group, c }: { group: DishGroup; c: CardColors }) {
+  const prefs = usePrefs();
   const shown = group.occ.slice(0, 5);
   return (
     <View style={styles.card}>
       <View style={styles.favRow}>
         <Text style={[styles.dish, { color: c.text }]}>{group.dish}</Text>
-        <HeartButton label={group.dish} />
+        {prefs.favoritesEnabled ? <HeartButton label={group.dish} /> : null}
       </View>
       {group.occ.length === 0 ? (
         <Text style={[styles.occSub, { color: c.sub }]}>Not on today/tomorrow menus</Text>

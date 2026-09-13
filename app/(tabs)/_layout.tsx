@@ -99,7 +99,7 @@ function TabLayoutNative() {
   if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 
   return (
-    <TabNavProvider activeKey={activeKey} navigate={navigate} fallbackHall={hallOrder[0]}>
+    <TabNavProvider activeKey={activeKey} navigate={navigate}>
       <AppShell>
         <StatusBar style="light" />
         <HallChrome>

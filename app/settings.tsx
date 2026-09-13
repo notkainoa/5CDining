@@ -26,13 +26,15 @@ export default function SettingsScreen() {
   const [edgeDir, setEdgeDir] = useState<-1 | 0 | 1>(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(0);
+  const maxScrollY = useRef(0);
   const bottomPad = Math.max((insets.bottom * 6) / 10, CHROME_INSET);
 
   useEffect(() => {
     if (edgeDir === 0) return;
     const t = setInterval(() => {
-      scrollY.current += edgeDir * 30;
-      scrollRef.current?.scrollTo({ y: scrollY.current, animated: false });
+      const y = Math.min(Math.max(0, scrollY.current + edgeDir * 30), maxScrollY.current);
+      scrollY.current = y;
+      scrollRef.current?.scrollTo({ y, animated: false });
     }, 50);
     return () => clearInterval(t);
   }, [edgeDir]);
@@ -80,7 +82,9 @@ export default function SettingsScreen() {
           scrollEnabled={!scrollLocked}
           scrollEventThrottle={16}
           onScroll={(e) => {
-            scrollY.current = e.nativeEvent.contentOffset.y;
+            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+            scrollY.current = contentOffset.y;
+            maxScrollY.current = Math.max(0, contentSize.height - layoutMeasurement.height);
           }}
         >
           <View style={styles.card}>
@@ -92,7 +96,9 @@ export default function SettingsScreen() {
             <HallOrderList
               key={prefs.loaded ? 'ready' : 'loading'}
               order={orderedHalls(prefs.hallOrder).map((h) => h.id)}
-              onChange={(hallOrder) => prefs.update({ hallOrder })}
+              onChange={(hallOrder) => {
+                if (prefs.loaded) prefs.update({ hallOrder });
+              }}
               onScrollLock={setScrollLocked}
               onEdgeScroll={setEdgeDir}
               scrollY={scrollY}
@@ -106,6 +112,7 @@ export default function SettingsScreen() {
                 label="Search page"
                 hint="Adds a search button in the bottom bar for finding dishes."
                 value={prefs.searchEnabled}
+                disabled={!prefs.loaded}
                 onToggle={() =>
                   prefs.update(
                     prefs.searchEnabled
@@ -118,7 +125,7 @@ export default function SettingsScreen() {
                 label="Favorites"
                 hint="Hearts on dishes, favorites first in results."
                 value={prefs.favoritesEnabled}
-                disabled={!prefs.searchEnabled}
+                disabled={!prefs.loaded || !prefs.searchEnabled}
                 onToggle={() => prefs.update({ favoritesEnabled: !prefs.favoritesEnabled })}
               />
             </View>
@@ -134,6 +141,7 @@ export default function SettingsScreen() {
               badge="vegan"
               hint="Highlights vegan dishes."
               value={prefs.veganOnly}
+              disabled={!prefs.loaded}
               onToggle={() => prefs.update({ veganOnly: !prefs.veganOnly })}
             />
             <Row
@@ -141,6 +149,7 @@ export default function SettingsScreen() {
               badge="vegetarian"
               hint="Highlights vegetarian (and vegan) dishes."
               value={prefs.vegetarianOnly}
+              disabled={!prefs.loaded}
               onToggle={() => prefs.update({ vegetarianOnly: !prefs.vegetarianOnly })}
             />
           </View>
@@ -151,18 +160,21 @@ export default function SettingsScreen() {
               label="Show calories"
               hint="Calorie counts next to item names."
               value={prefs.showCalories}
+              disabled={!prefs.loaded}
               onToggle={() => prefs.update({ showCalories: !prefs.showCalories })}
             />
             <Row
               label="Show descriptions"
               hint="Short description under each dish."
               value={prefs.showDescriptions}
+              disabled={!prefs.loaded}
               onToggle={() => prefs.update({ showDescriptions: !prefs.showDescriptions })}
             />
             <Row
               label="Expand all by default"
               hint="Open every station when you open a menu. You can still collapse them."
               value={prefs.expandAllDefault}
+              disabled={!prefs.loaded}
               onToggle={() => prefs.update({ expandAllDefault: !prefs.expandAllDefault })}
             />
           </View>

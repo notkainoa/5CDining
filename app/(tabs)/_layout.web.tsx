@@ -7,7 +7,6 @@ import HallTabBar from '@/components/HallTabBar';
 import { AppShell, HallChrome } from '@/components/HallChrome';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
-import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
 
 /**
@@ -25,7 +24,6 @@ export default function TabLayoutWeb() {
 }
 
 function TabLayoutWebInner() {
-  const { hallOrder } = usePrefs();
   const segments = useSegments();
   const router = useRouter();
   const activeKey = segments.at(1) ?? '';
@@ -38,7 +36,7 @@ function TabLayoutWebInner() {
   );
 
   return (
-    <TabNavProvider activeKey={activeKey} navigate={navigate} fallbackHall={hallOrder[0]}>
+    <TabNavProvider activeKey={activeKey} navigate={navigate}>
       <AppShell>
         <StatusBar style="light" />
         <HallChrome>

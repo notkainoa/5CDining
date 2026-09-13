@@ -325,9 +325,19 @@ export default function HallTabBar() {
         return;
       }
       if (prev.id === cur.id) {
-        if (prev.x !== cur.x || prev.w !== cur.w) {
+        const moved = prev.x !== cur.x || prev.w !== cur.w;
+        if (moved) {
           blobL.set(withSpring(nl, MOVE_SPRING));
           blobR.set(withSpring(nr, MOVE_SPRING));
+        }
+        if (moved || prev.bar !== cur.bar) {
+          snapBarScroll(
+            scrollRef,
+            applyScroll,
+            scrollAnim,
+            scrollDrive,
+            neededScrollX(nl, cur.w, barW.value, scrollX.value),
+          );
         }
         return;
       }

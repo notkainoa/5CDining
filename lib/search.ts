@@ -102,6 +102,10 @@ function dayRank(day: string): number {
   return day === 'Today' ? 0 : 1;
 }
 
+export function compareOccurrences(a: Occurrence, b: Occurrence): number {
+  return dayRank(a.day) - dayRank(b.day) || a.hallName.localeCompare(b.hallName);
+}
+
 /**
  * Fuzzy dish search: typo-tolerant name matching (Fuse.js), grouped so each
  * dish appears once with all its day/hall/meal occurrences. Favorites first,
@@ -152,9 +156,7 @@ export function searchDishes(index: SearchHit[], query: string, favLabels: strin
         dish: g.dish,
         fav: favIds.has(g.id),
         score: r.score ?? 1,
-        occ: g.occ.sort(
-          (a, b) => dayRank(a.day) - dayRank(b.day) || a.hallName.localeCompare(b.hallName),
-        ),
+        occ: g.occ.sort(compareOccurrences),
       } satisfies DishGroup;
     })
     .sort(
