@@ -27,12 +27,19 @@ export default function SettingsScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(0);
   const maxScrollY = useRef(0);
+  const viewportH = useRef(0);
+  const contentH = useRef(0);
   const bottomPad = Math.max((insets.bottom * 6) / 10, CHROME_INSET);
+
+  const syncMaxScroll = () => {
+    maxScrollY.current = Math.max(0, contentH.current - viewportH.current);
+  };
 
   useEffect(() => {
     if (edgeDir === 0) return;
     const t = setInterval(() => {
-      const y = Math.min(Math.max(0, scrollY.current + edgeDir * 30), maxScrollY.current);
+      const next = Math.max(0, scrollY.current + edgeDir * 30);
+      const y = maxScrollY.current > 0 ? Math.min(next, maxScrollY.current) : next;
       scrollY.current = y;
       scrollRef.current?.scrollTo({ y, animated: false });
     }, 50);
@@ -81,6 +88,14 @@ export default function SettingsScreen() {
           contentContainerStyle={styles.body}
           scrollEnabled={!scrollLocked}
           scrollEventThrottle={16}
+          onLayout={(e) => {
+            viewportH.current = e.nativeEvent.layout.height;
+            syncMaxScroll();
+          }}
+          onContentSizeChange={(_w, h) => {
+            contentH.current = h;
+            syncMaxScroll();
+          }}
           onScroll={(e) => {
             const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
             scrollY.current = contentOffset.y;

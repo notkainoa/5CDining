@@ -23,7 +23,13 @@ import HeartButton from '@/components/HeartButton';
 import { Theme } from '@/constants/Theme';
 import { todayInLA } from '@/lib/dates';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
-import { compareOccurrences, loadSearchIndex, searchDishes, type DishGroup, type SearchHit } from '@/lib/search';
+import {
+  compareOccurrences,
+  loadSearchIndex,
+  searchDishes,
+  type DishGroup,
+  type SearchHit,
+} from '@/lib/search';
 import { favoriteId, SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;

@@ -3,6 +3,7 @@ import type { HallId } from './diningHalls';
 
 const cache = new Map<string, HallMenu>();
 const requestGen = new Map<string, number>();
+const cachedGen = new Map<string, number>();
 
 export function menuCacheKey(hall: HallId, d: Date): string {
   return `${hall}:${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -25,6 +26,9 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
   const gen = (requestGen.get(key) ?? 0) + 1;
   requestGen.set(key, gen);
   const data = await fetchHallMenu(hall, date);
-  if (requestGen.get(key) === gen) setCachedMenu(hall, date, data);
+  if (gen >= (cachedGen.get(key) ?? 0)) {
+    setCachedMenu(hall, date, data);
+    cachedGen.set(key, gen);
+  }
   return data;
 }
