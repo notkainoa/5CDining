@@ -26,12 +26,13 @@ export default function SettingsScreen() {
   const [edgeDir, setEdgeDir] = useState<-1 | 0 | 1>(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(0);
-  const maxScrollY = useRef(0);
+  const maxScrollY = useRef<number | null>(null);
   const viewportH = useRef(0);
   const contentH = useRef(0);
   const bottomPad = Math.max((insets.bottom * 6) / 10, CHROME_INSET);
 
   const syncMaxScroll = () => {
+    if (viewportH.current <= 0 || contentH.current <= 0) return;
     maxScrollY.current = Math.max(0, contentH.current - viewportH.current);
   };
 
@@ -39,8 +40,10 @@ export default function SettingsScreen() {
     if (edgeDir === 0) return;
     const t = setInterval(() => {
       const next = Math.max(0, scrollY.current + edgeDir * 30);
-      const y = maxScrollY.current > 0 ? Math.min(next, maxScrollY.current) : next;
+      const max = maxScrollY.current;
+      const y = max == null ? next : Math.min(next, max);
       scrollY.current = y;
+      if (max === 0) return;
       scrollRef.current?.scrollTo({ y, animated: false });
     }, 50);
     return () => clearInterval(t);
