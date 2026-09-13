@@ -19,6 +19,7 @@ import {
   type Meal,
   type MenuItem,
 } from '@/lib/api';
+import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { nowMinutesInLA } from '@/lib/dates';
 import { normalizeMealName, useDay } from '@/lib/day';
@@ -36,6 +37,8 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
   const { selected, date, mealName, selectMealName } = useDay();
   const { arm, disarm } = useDim();
+  const { join } = useHallBottomJoin();
+  const { expandAllDefault } = usePrefs();
 
   const [menu, setMenu] = useState<HallMenu | null>(null);
   const [closure, setClosure] = useState<HallClosure | null>(null);
@@ -62,10 +65,16 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     return autoIndex;
   }, [meals, mealName, autoIndex]);
 
+  const expandAllRef = useRef(expandAllDefault);
+  expandAllRef.current = expandAllDefault;
+  const stationCount = meals[mealIndex]?.stations.length ?? 0;
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on context change
-    setOpenStations([]);
-  }, [hallId, date, mealIndex]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset open stations for a new menu
+    setOpenStations(
+      expandAllRef.current && stationCount > 0 ? Array.from({ length: stationCount }, (_, i) => i) : [],
+    );
+  }, [hallId, date, mealIndex, stationCount]);
 
   const load = useCallback(
     async (force = false) => {
@@ -111,7 +120,6 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const selectMeal = (i: number) => {
     const m = meals[i];
     if (m) selectMealName(m.name);
-    setOpenStations([]);
     closePicker();
   };
 
@@ -133,7 +141,15 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         <Pressable style={styles.pageOverlay} onPress={closePicker} accessibilityLabel="Dismiss" />
       ) : null}
       <View
-        style={[styles.school, { backgroundColor: hall.color }, picker ? styles.schoolFront : null]}
+        style={[
+          styles.school,
+          {
+            backgroundColor: hall.color,
+            borderBottomLeftRadius: nestedRadius(join.bl),
+            borderBottomRightRadius: nestedRadius(join.br),
+          },
+          picker ? styles.schoolFront : null,
+        ]}
       >
         {picker ? (
           <Pressable style={styles.overlay} onPress={closePicker} accessibilityLabel="Dismiss" />
@@ -368,8 +384,8 @@ const styles = StyleSheet.create({
     flex: 1,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: SCHOOL_RADIUS,
+    borderBottomRightRadius: SCHOOL_RADIUS,
     overflow: 'hidden',
     marginHorizontal: 8,
     marginTop: 0,

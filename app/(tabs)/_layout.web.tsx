@@ -25,7 +25,7 @@ export default function TabLayoutWeb() {
 }
 
 function TabLayoutWebInner() {
-  const { searchEnabled, hallOrder } = usePrefs();
+  const { hallOrder } = usePrefs();
   const segments = useSegments();
   const router = useRouter();
   const activeKey = segments.at(1) ?? '';
@@ -45,10 +45,6 @@ function TabLayoutWebInner() {
           <HallTabBar />
           <View style={styles.fill}>
             <Tabs tabBar={() => null} screenOptions={{ headerShown: false }}>
-              <Tabs.Screen
-                name="search"
-                options={{ title: 'Search', href: searchEnabled ? undefined : null }}
-              />
               <Tabs.Screen name="mcconnell" options={{ title: 'McConnell' }} />
               <Tabs.Screen name="frary" options={{ title: 'Frary' }} />
               <Tabs.Screen name="hoch" options={{ title: 'Hoch-Shanahan' }} />
@@ -56,7 +52,6 @@ function TabLayoutWebInner() {
               <Tabs.Screen name="collins" options={{ title: 'Collins' }} />
               <Tabs.Screen name="frank" options={{ title: 'Frank' }} />
               <Tabs.Screen name="oldenborg" options={{ title: 'Oldenborg' }} />
-              <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
               <Tabs.Screen name="index" options={{ href: null }} />
             </Tabs>
           </View>

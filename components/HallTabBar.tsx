@@ -14,30 +14,33 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/Theme';
+import { CHROME_INSET, CHROME_JOIN_EAR, CHROME_RADIUS, INNER_CHIP_RADIUS } from '@/components/HallChrome';
 import { HALL_BY_ID, hallChipName, orderedHalls, type DiningHall } from '@/lib/diningHalls';
 import { useDim } from '@/lib/dim';
 import { usePrefs } from '@/lib/settings';
 import { useTabNav } from '@/lib/tabNav';
 
 /** Horizontal inset of the hall card below the bar (HallScreen `school` marginHorizontal). */
-const HALL_INSET = 8;
+const HALL_INSET = CHROME_INSET;
 const H_PAD = HALL_INSET;
 const GAP = 8;
 const CHIP_H = 40;
-const CHIP_RADIUS = 14;
+const CHIP_RADIUS = INNER_CHIP_RADIUS;
 /**
  * Height of the bridge that joins an attached chip to the hall card.
  */
 const STEM = HALL_INSET;
-/** Concave fillet. Matches the hall card's 24pt bottom corners. */
-const EAR = 24;
+/** Concave fillet where a chip stem meets the hall chrome. */
+const EAR = CHROME_JOIN_EAR;
 /**
  * Underside fillet where an overhanging chip meets the hall card's side.
- * Same 24 as the hall card; the gray gutter will clip it, and that is fine.
  */
 const GUTTER_EAR = EAR;
-/** Radius of the hall card's top corners. Drawn here as masks so they can un-round. */
-const CORNER = 18;
+/**
+ * Inner radius of the hall chrome's top corners (outer is CHROME_RADIUS).
+ * Drawn here as masks so they can un-round.
+ */
+const CORNER = CHROME_RADIUS - HALL_INSET;
 /**
  * Stay attached until the last pixel of the chip still overlaps the hall
  * card. Lets go when that edge lines up with the card's edge.

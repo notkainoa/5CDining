@@ -12,7 +12,6 @@ import { DayProvider } from '@/lib/day';
 import { orderedHalls } from '@/lib/diningHalls';
 import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
-import SearchPage from './search';
 import McConnellPage from './mcconnell';
 import FraryPage from './frary';
 import HochPage from './hoch';
@@ -20,10 +19,8 @@ import MalottPage from './malott';
 import CollinsPage from './collins';
 import FrankPage from './frank';
 import OldenborgPage from './oldenborg';
-import SettingsPage from './settings';
 
 const PAGES = {
-  search: SearchPage,
   mcconnell: McConnellPage,
   frary: FraryPage,
   hoch: HochPage,
@@ -31,7 +28,6 @@ const PAGES = {
   collins: CollinsPage,
   frank: FrankPage,
   oldenborg: OldenborgPage,
-  settings: SettingsPage,
 } as const;
 
 /**
@@ -43,16 +39,12 @@ const PAGES = {
  */
 function TabLayoutNative() {
   const segments = useSegments();
-  const { loaded, hallOrder, searchEnabled } = usePrefs();
+  const { loaded, hallOrder } = usePrefs();
   const pagerRef = useRef<NativePagerHandle>(null);
 
   const order: string[] = useMemo(
-    () => [
-      ...(searchEnabled ? (['search'] as const) : []),
-      ...orderedHalls(hallOrder).map((h) => h.id),
-      'settings' as const,
-    ],
-    [hallOrder, searchEnabled],
+    () => orderedHalls(hallOrder).map((h) => h.id),
+    [hallOrder],
   );
 
   const [initialKey] = useState(() => {

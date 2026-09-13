@@ -11,6 +11,8 @@ export interface Prefs {
   showDescriptions: boolean;
   searchEnabled: boolean;
   favoritesEnabled: boolean;
+  /** Open every station when a hall menu first appears. */
+  expandAllDefault: boolean;
   /** Favorite dish labels (matched by normalized name). */
   favorites: string[];
 }
@@ -25,6 +27,7 @@ const DEFAULTS: Prefs = {
   showDescriptions: true,
   searchEnabled: false,
   favoritesEnabled: false,
+  expandAllDefault: true,
   favorites: [],
 };
 

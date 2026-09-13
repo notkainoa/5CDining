@@ -5,18 +5,39 @@ import { Theme } from '@/constants/Theme';
 
 /** Black strip around the grouped hall chrome. */
 export const CHROME_INSET = 8;
+/** Hall chips and day pills. Outer chrome is this plus the inset. */
+export const INNER_CHIP_RADIUS = 14;
 /**
  * Outer corners of the hall chrome (top) and the day-button card.
  * Nested with 14pt inner chips / day pills: inner + inset.
  */
-export const CHROME_RADIUS = 14 + CHROME_INSET;
+export const CHROME_RADIUS = INNER_CHIP_RADIUS + CHROME_INSET;
+/** School card bottom corners. Nested inside the hall chrome's bottom radius. */
+export const SCHOOL_RADIUS = 24;
 /**
  * Bottom corners of the hall chrome. Nested with the school card's 24pt
  * bottom corners: inner + inset.
  */
-export const CHROME_BOTTOM_RADIUS = 24 + CHROME_INSET;
+export const CHROME_BOTTOM_RADIUS = SCHOOL_RADIUS + CHROME_INSET;
 /** Concave fillet where a hall chip or the days card joins the hall chrome. */
 export const CHROME_JOIN_EAR = CHROME_RADIUS;
+
+/**
+ * Fillet and convex corner that meet when a tab sits `d` in from a card edge.
+ * Both scale together so they stay tangent; they do not snap to 0/max.
+ */
+export function joinRadii(d: number, earMax: number, cornerMax: number): { ear: number; corner: number } {
+  if (d <= 0.5) return { ear: 0, corner: 0 };
+  const span = earMax + cornerMax;
+  if (span <= 0) return { ear: 0, corner: 0 };
+  const t = Math.min(1, d / span);
+  return { ear: t * earMax, corner: t * cornerMax };
+}
+
+/** Inner radius nested by `inset` inside an outer rounded rect. */
+export function nestedRadius(outer: number, inset: number = CHROME_INSET): number {
+  return Math.max(0, outer - inset);
+}
 
 type BottomJoin = { bl: number; br: number };
 

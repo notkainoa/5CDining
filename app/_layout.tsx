@@ -54,6 +54,26 @@ function RootLayoutNav() {
             name="(tabs)"
             options={{ headerShown: false, contentStyle: { backgroundColor: '#000000' } }}
           />
+          <Stack.Screen
+            name="search"
+            options={{
+              headerShown: false,
+              animation: 'default',
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
+              contentStyle: { backgroundColor: '#000000' },
+            }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{
+              headerShown: false,
+              animation: 'default',
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
+              contentStyle: { backgroundColor: '#000000' },
+            }}
+          />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
       </ThemeProvider>
