@@ -18,7 +18,7 @@ import { dateCardLabel } from '@/lib/dates';
 import { cornerSideInset, estimateScreenCornerRadius } from '@/lib/screenCorners';
 import { useDay } from '@/lib/day';
 import { HALL_BY_ID } from '@/lib/diningHalls';
-import { usePrefs } from '@/lib/settings';
+import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
 import { useTabNav } from '@/lib/tabNav';
 
@@ -212,7 +212,7 @@ export default function DiningTabBar() {
 
   useEffect(() => {
     measureJoin();
-  }, [width, sideClear, searchEnabled, compactDays, measureJoin]);
+  }, [width, sideClear, SEARCH_FEATURES, searchEnabled, compactDays, measureJoin]);
 
   return (
     <View
@@ -287,7 +287,7 @@ export default function DiningTabBar() {
               measureJoin();
             }}
           >
-            {searchEnabled ? (
+            {SEARCH_FEATURES && searchEnabled ? (
               <IconCard
                 label="Search"
                 symbol={SEARCH_SYMBOL}

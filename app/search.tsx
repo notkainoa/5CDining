@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import mediumWeight from 'expo-symbols/androidWeights/medium';
@@ -24,7 +24,7 @@ import { Theme } from '@/constants/Theme';
 import { todayInLA } from '@/lib/dates';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadSearchIndex, searchDishes, type DishGroup, type SearchHit } from '@/lib/search';
-import { favoriteId, usePrefs } from '@/lib/settings';
+import { favoriteId, SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
 const SEARCH_SYMBOL = { ios: 'magnifyingglass', android: 'search', web: 'search' } as const;
@@ -34,6 +34,11 @@ function dayKey(d: Date): string {
 }
 
 export default function SearchScreen() {
+  if (!SEARCH_FEATURES) return <Redirect href="/(tabs)" />;
+  return <SearchScreenInner />;
+}
+
+function SearchScreenInner() {
   const prefs = usePrefs();
   const router = useRouter();
   const insets = useSafeAreaInsets();

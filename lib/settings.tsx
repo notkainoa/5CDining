@@ -2,6 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { DINING_HALLS, type HallId } from './diningHalls';
 
+/**
+ * Search page, dish hearts, and the Settings rows for both.
+ * Flip to true to ship those features again; stored prefs are kept as-is.
+ */
+export const SEARCH_FEATURES = false;
+
 export interface Prefs {
   /** Left-to-right dining hall order. First hall is the launch page. */
   hallOrder: HallId[];
@@ -49,6 +55,11 @@ export function sanitizeOrder(order: unknown): HallId[] {
     if (!out.includes(id)) out.push(id);
   }
   return out;
+}
+
+function withSearchFeatures(prefs: Prefs): Prefs {
+  if (SEARCH_FEATURES) return prefs;
+  return { ...prefs, searchEnabled: false, favoritesEnabled: false };
 }
 
 const KEY = 'better5cmenu:prefs:v1';
@@ -121,7 +132,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SettingsContext.Provider value={{ ...prefs, loaded, update, isFavorite, toggleFavorite }}>
+    <SettingsContext.Provider
+      value={{ ...withSearchFeatures(prefs), loaded, update, isFavorite, toggleFavorite }}
+    >
       {children}
     </SettingsContext.Provider>
   );

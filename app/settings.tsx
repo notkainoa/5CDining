@@ -13,7 +13,7 @@ import {
   CHROME_RADIUS,
 } from '@/components/HallChrome';
 import { orderedHalls } from '@/lib/diningHalls';
-import { usePrefs } from '@/lib/settings';
+import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { Theme } from '@/constants/Theme';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
@@ -99,28 +99,30 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.section}>Search & favorites</Text>
-            <Row
-              label="Search page"
-              hint="Adds a search button in the bottom bar for finding dishes."
-              value={prefs.searchEnabled}
-              onToggle={() =>
-                prefs.update(
-                  prefs.searchEnabled
-                    ? { searchEnabled: false, favoritesEnabled: false }
-                    : { searchEnabled: true },
-                )
-              }
-            />
-            <Row
-              label="Favorites"
-              hint="Hearts on dishes, favorites first in results."
-              value={prefs.favoritesEnabled}
-              disabled={!prefs.searchEnabled}
-              onToggle={() => prefs.update({ favoritesEnabled: !prefs.favoritesEnabled })}
-            />
-          </View>
+          {SEARCH_FEATURES ? (
+            <View style={styles.card}>
+              <Text style={styles.section}>Search & favorites</Text>
+              <Row
+                label="Search page"
+                hint="Adds a search button in the bottom bar for finding dishes."
+                value={prefs.searchEnabled}
+                onToggle={() =>
+                  prefs.update(
+                    prefs.searchEnabled
+                      ? { searchEnabled: false, favoritesEnabled: false }
+                      : { searchEnabled: true },
+                  )
+                }
+              />
+              <Row
+                label="Favorites"
+                hint="Hearts on dishes, favorites first in results."
+                value={prefs.favoritesEnabled}
+                disabled={!prefs.searchEnabled}
+                onToggle={() => prefs.update({ favoritesEnabled: !prefs.favoritesEnabled })}
+              />
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.section}>Dietary filters</Text>
