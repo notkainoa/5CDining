@@ -161,6 +161,11 @@ export function isGlutenFree(item: MenuItem): boolean {
   return item.glutenFree === true;
 }
 
+/** True when any item on this meal actually sent the flag (including explicit false). */
+export function mealHasFlag(meal: Meal, key: 'glutenFree' | 'plantBased'): boolean {
+  return meal.stations.some((st) => st.items.some((it) => typeof it[key] === 'boolean'));
+}
+
 export interface DietPrefs {
   veganOnly: boolean;
   vegetarianOnly: boolean;

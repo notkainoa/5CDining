@@ -11,6 +11,7 @@ import {
 import {
   isGlutenFree,
   matchesDiet,
+  mealHasFlag,
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
@@ -279,9 +280,16 @@ function MealBody({
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
+  const glutenFreeOnly = prefs.glutenFreeOnly && mealHasFlag(meal, 'glutenFree');
   const filtersActive =
-    prefs.veganOnly || prefs.vegetarianOnly || prefs.glutenFreeOnly || prefs.plantBasedOnly;
-  const isMatch = (it: MenuItem) => matchesDiet(it, prefs);
+    prefs.veganOnly || prefs.vegetarianOnly || glutenFreeOnly || prefs.plantBasedOnly;
+  const isMatch = (it: MenuItem) =>
+    matchesDiet(it, {
+      veganOnly: prefs.veganOnly,
+      vegetarianOnly: prefs.vegetarianOnly,
+      glutenFreeOnly,
+      plantBasedOnly: prefs.plantBasedOnly,
+    });
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
   const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
@@ -310,6 +318,9 @@ function MealBody({
           <Text style={styles.bulk}>{allOpen ? 'Collapse all' : 'Expand all'}</Text>
         </Pressable>
       </View>
+      {prefs.glutenFreeOnly && !glutenFreeOnly ? (
+        <Text style={styles.filterNote}>No gluten-free labels for this hall.</Text>
+      ) : null}
       {meal.stations.map((st, si) => {
         const sOpen = openStations.includes(si);
         const matchCount = st.items.filter(isMatch).length;
@@ -516,6 +527,7 @@ const styles = StyleSheet.create({
   },
   bulk: { fontSize: 13, fontWeight: '700', color: Theme.foodItem },
   dishCount: { fontSize: 13, fontWeight: '600', color: Theme.foodItem },
+  filterNote: { fontSize: 13, lineHeight: 18, color: Theme.foodItem, marginBottom: 8 },
   station: { paddingBottom: 6 },
   stationHeader: {
     flexDirection: 'row',
