@@ -11,7 +11,7 @@ import {
 import {
   isGlutenFree,
   matchesDiet,
-  mealHasFlag,
+  menusHaveFlag,
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
@@ -264,6 +264,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               <MealBody
                 hallId={hallId}
                 meal={meal}
+                hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
                 openStations={openStations}
                 setOpenStations={setOpenStations}
               />
@@ -279,18 +280,20 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 function MealBody({
   hallId,
   meal,
+  hasGlutenFree,
   openStations,
   setOpenStations,
 }: {
   hallId: HallId;
   meal: Meal;
+  hasGlutenFree: boolean;
   openStations: number[];
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
   const allergenFilterOn = prefs.avoidedAllergens.length > 0;
   const canFilterAllergens = allergenFilterOn && hallPublishesAllergens(hallId);
-  const glutenFreeOnly = prefs.glutenFreeOnly && mealHasFlag(meal, 'glutenFree');
+  const glutenFreeOnly = prefs.glutenFreeOnly && hasGlutenFree;
   const filtersActive =
     prefs.veganOnly ||
     prefs.vegetarianOnly ||

@@ -168,6 +168,11 @@ export function mealHasFlag(meal: Meal, key: 'glutenFree' | 'plantBased'): boole
   return meal.stations.some((st) => st.items.some((it) => typeof it[key] === 'boolean'));
 }
 
+/** Hall-level: a meal with no flags should not disable the filter if another meal published them. */
+export function menusHaveFlag(meals: Meal[], key: 'glutenFree' | 'plantBased'): boolean {
+  return meals.some((meal) => mealHasFlag(meal, key));
+}
+
 export interface DietPrefs {
   veganOnly: boolean;
   vegetarianOnly: boolean;
@@ -185,7 +190,7 @@ export interface DietPrefs {
 export function matchesDiet(item: MenuItem, prefs: DietPrefs): boolean {
   if (prefs.veganOnly && !item.vegan) return false;
   if (prefs.vegetarianOnly && !(item.vegetarian || item.vegan)) return false;
-  if (prefs.glutenFreeOnly && !item.glutenFree) return false;
+  if (prefs.glutenFreeOnly && !isGlutenFree(item)) return false;
   if (prefs.plantBasedOnly && !(item.plantBased || item.vegan)) return false;
   if (prefs.avoidedAllergens.length > 0) {
     const listed = item.allergens;
