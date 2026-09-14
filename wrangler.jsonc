@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "better5cmenu",
+  "compatibility_date": "2026-09-14",
+  "preview_urls": true,
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}

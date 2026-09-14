@@ -32,7 +32,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "prettier": "^3.9.6",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "^4.131.2"
   },
   "scripts": {
     "start": "expo start",
@@ -42,6 +43,8 @@
     "web:clear": "expo start --web --clear",
     "export:web": "expo export --platform web",
     "serve:web": "npx serve dist",
+    "deploy": "npm run export:web && wrangler deploy",
+    "deploy:preview": "npm run export:web && wrangler versions upload",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
