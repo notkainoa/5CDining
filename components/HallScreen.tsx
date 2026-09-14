@@ -21,7 +21,6 @@ import {
 } from '@/lib/api';
 import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
-import { nowMinutesInLA } from '@/lib/dates';
 import { normalizeMealName, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
@@ -35,7 +34,7 @@ import SchoolLogo from '@/components/SchoolLogo';
 
 export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
-  const { selected, date, mealName, selectMealName } = useDay();
+  const { selected, date, mealName, selectMealName, nowMinutes } = useDay();
   const { arm, disarm } = useDim();
   const { join } = useHallBottomJoin();
   const { expandAllDefault } = usePrefs();
@@ -52,8 +51,8 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
 
   const autoIndex = useMemo(
-    () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutesInLA()) : 0),
-    [meals, selected],
+    () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
+    [meals, selected, nowMinutes],
   );
 
   const mealIndex = useMemo(() => {
@@ -156,7 +155,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         ) : null}
 
         <View style={styles.headerRow}>
-          <Text style={styles.hallName}>{hall.name}</Text>
+          <Text style={[styles.hallName, { color: hall.onColor }]}>{hall.name}</Text>
           <SchoolLogo hall={hall} size={52} />
         </View>
 
@@ -171,13 +170,15 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               accessibilityRole="button"
               accessibilityLabel={`${shortMealName(meal?.name ?? 'Meal')}, choose meal`}
             >
-              <Text style={styles.mealPillName}>{shortMealName(meal?.name ?? '')}</Text>
-              <Text style={styles.mealChev}>▾</Text>
+              <Text style={[styles.mealPillName, { color: hall.onColor }]}>
+                {shortMealName(meal?.name ?? '')}
+              </Text>
+              <Text style={[styles.mealChev, { color: hall.onColor }]}>▾</Text>
             </Pressable>
           ) : null}
           {hours ? (
             <View style={styles.hoursWrap} pointerEvents="none">
-              <Text style={styles.mealHours}>{hours}</Text>
+              <Text style={[styles.mealHours, { color: hall.onColor }]}>{hours}</Text>
               {picker === 'meal' ? <View pointerEvents="none" style={styles.hoursScrim} /> : null}
             </View>
           ) : null}
@@ -218,7 +219,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                   }}
                   style={[styles.retry, { backgroundColor: hall.color }]}
                 >
-                  <Text style={styles.retryText}>Retry</Text>
+                  <Text style={[styles.retryText, { color: hall.onColor }]}>Retry</Text>
                 </Pressable>
               </View>
             ) : closure ? (
@@ -232,9 +233,11 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               <View style={styles.state}>
                 <Text style={styles.stateTitle}>No menu posted</Text>
                 <Text style={styles.stateText}>
-                  {menu?.status === 'unavailable'
-                    ? 'This hall has no data for this date yet — often posted closer to the day.'
-                    : 'Nothing posted for this date yet.'}
+                  {menu?.error === 'unsupported_date'
+                    ? 'Only today and tomorrow are posted.'
+                    : menu?.status === 'unavailable'
+                      ? 'This hall has no data for this date yet. Menus often go up closer to the day.'
+                      : 'Nothing posted for this date yet.'}
                 </Text>
                 <Pressable
                   onPress={() => {
@@ -243,7 +246,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                   }}
                   style={[styles.retry, { backgroundColor: hall.color }]}
                 >
-                  <Text style={styles.retryText}>Check again</Text>
+                  <Text style={[styles.retryText, { color: hall.onColor }]}>Check again</Text>
                 </Pressable>
               </View>
             ) : (
@@ -290,6 +293,8 @@ function MealBody({
         </Text>
         <Pressable
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={allOpen ? 'Collapse all stations' : 'Expand all stations'}
           onPress={() => setOpenStations(allOpen ? [] : meal.stations.map((_, i) => i))}
         >
           <Text style={styles.bulk}>{allOpen ? 'Collapse all' : 'Expand all'}</Text>

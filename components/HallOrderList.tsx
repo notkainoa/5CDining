@@ -228,7 +228,7 @@ function OrderRow({
         <Text style={styles.grip}>≡</Text>
       </View>
       <View style={[styles.dot, { backgroundColor: hall.color }]}>
-        <Text style={styles.abbr}>{hall.abbr}</Text>
+        <Text style={[styles.abbr, { color: hall.onColor }]}>{hall.abbr}</Text>
       </View>
       <View style={styles.texts}>
         <Text style={[styles.name, { color: dark ? '#fff' : '#111' }]}>

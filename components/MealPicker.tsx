@@ -13,18 +13,23 @@ export default function MealPicker({
 }) {
   return (
     <View style={styles.list} pointerEvents="auto">
-      {meals.map((m, i) => (
-        <Pressable
-          key={`${m.name}-${i}`}
-          onPress={() => onSelect(i)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: i === selected }}
-          style={({ pressed }) => [styles.item, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-        >
-          <Text style={styles.itemName}>{shortMealName(m.name)}</Text>
-          {mealHoursCompact(m) ? <Text style={styles.itemHours}>{mealHoursCompact(m)}</Text> : null}
-        </Pressable>
-      ))}
+      {meals.map((m, i) => {
+        const hours = mealHoursCompact(m);
+        const name = shortMealName(m.name);
+        return (
+          <Pressable
+            key={`${m.name}-${i}`}
+            onPress={() => onSelect(i)}
+            accessibilityRole="button"
+            accessibilityLabel={hours ? `${name}, ${hours}` : name}
+            accessibilityState={{ selected: i === selected }}
+            style={({ pressed }) => [styles.item, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+          >
+            <Text style={styles.itemName}>{name}</Text>
+            {hours ? <Text style={styles.itemHours}>{hours}</Text> : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

@@ -52,6 +52,8 @@ function TabLayoutNative() {
     return order.includes(name) ? name : order[0];
   });
   const [activeKey, setActiveKey] = useState(initialKey);
+  const activeKeyRef = useRef(activeKey);
+  activeKeyRef.current = activeKey;
 
   const handlePageSelected = useCallback(
     (i: number) => {
@@ -93,8 +95,12 @@ function TabLayoutNative() {
   }, [segments, order, activeKey]);
 
   useEffect(() => {
-    pagerRef.current?.setPageWithoutAnimation(Math.max(0, order.indexOf(activeKey)));
-  }, [order, activeKey]);
+    // Only when hall order changes. Including activeKey here would snap the
+    // pager on every chip tap and cancel the swipe animation.
+    pagerRef.current?.setPageWithoutAnimation(
+      Math.max(0, order.indexOf(activeKeyRef.current)),
+    );
+  }, [order]);
 
   if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 

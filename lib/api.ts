@@ -43,10 +43,31 @@ export function formatYMDForApi(d: Date): string {
   return toYMD(d);
 }
 
-/** Fetch one hall + one date. Throws on network/HTTP errors. */
+/**
+ * Fetch one hall + one date.
+ * 400/404 (including "date must be today or tomorrow") map to `unavailable`
+ * so the screen can show the empty state instead of a hard error.
+ * Other HTTP/network failures still throw.
+ */
 export async function fetchHallMenu(hall: HallId, date: Date): Promise<HallMenu> {
   const ymd = formatYMDForApi(date);
   const res = await fetch(`${BASE}/v1/menus/${hall}?date=${ymd}`);
+  if (res.status === 400 || res.status === 404) {
+    let code: string | undefined;
+    try {
+      const body = (await res.json()) as { error?: { code?: string } };
+      code = body.error?.code;
+    } catch {
+      // empty or non-JSON body
+    }
+    return {
+      hall,
+      date: ymd,
+      status: 'unavailable',
+      error: code ?? `http_${res.status}`,
+      meals: null,
+    };
+  }
   if (!res.ok) throw new Error(`Menu request failed (${res.status})`);
   return (await res.json()) as HallMenu;
 }

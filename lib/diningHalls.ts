@@ -63,7 +63,7 @@ export const DINING_HALLS: DiningHall[] = [
     logoOnWhite: false,
     badge: 'HM',
     color: '#fab005',
-    onColor: '#FFFFFF',
+    onColor: '#000000',
     sourceUrl: 'https://hmc.sodexomyway.com/en-us/locations/hoch-shanahan-dining-commons',
   },
   {
@@ -76,7 +76,7 @@ export const DINING_HALLS: DiningHall[] = [
     logoOnWhite: true,
     badge: 'SC',
     color: '#40c057',
-    onColor: '#FFFFFF',
+    onColor: '#000000',
     sourceUrl: 'https://scripps.cafebonappetit.com/',
   },
   {
