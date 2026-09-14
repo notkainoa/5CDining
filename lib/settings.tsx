@@ -1,16 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { DINING_HALLS, type HallId } from './diningHalls';
+import { sanitizeAllergens, type Allergen } from './allergens';
+
+/**
+ * Search page, dish hearts, and the Settings rows for both.
+ * Flip to true to ship those features again; stored prefs are kept as-is.
+ */
+export const SEARCH_FEATURES = false;
 
 export interface Prefs {
   /** Left-to-right dining hall order. First hall is the launch page. */
   hallOrder: HallId[];
   veganOnly: boolean;
   vegetarianOnly: boolean;
+  glutenFreeOnly: boolean;
+  plantBasedOnly: boolean;
+  /** Allergens the user wants grayed out when a hall lists them. */
+  avoidedAllergens: Allergen[];
   showCalories: boolean;
   showDescriptions: boolean;
   searchEnabled: boolean;
   favoritesEnabled: boolean;
+  /** Open every station when a hall menu first appears. */
+  expandAllDefault: boolean;
   /** Favorite dish labels (matched by normalized name). */
   favorites: string[];
 }
@@ -21,10 +34,14 @@ const DEFAULTS: Prefs = {
   hallOrder: DEFAULT_ORDER,
   veganOnly: false,
   vegetarianOnly: false,
+  glutenFreeOnly: false,
+  plantBasedOnly: false,
+  avoidedAllergens: [],
   showCalories: false,
   showDescriptions: true,
   searchEnabled: false,
   favoritesEnabled: false,
+  expandAllDefault: true,
   favorites: [],
 };
 
@@ -46,6 +63,11 @@ export function sanitizeOrder(order: unknown): HallId[] {
     if (!out.includes(id)) out.push(id);
   }
   return out;
+}
+
+function withSearchFeatures(prefs: Prefs): Prefs {
+  if (SEARCH_FEATURES) return prefs;
+  return { ...prefs, searchEnabled: false, favoritesEnabled: false };
 }
 
 const KEY = 'better5cmenu:prefs:v1';
@@ -82,6 +104,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
               favorites: Array.isArray(parsed.favorites)
                 ? parsed.favorites.filter((f: unknown) => typeof f === 'string')
                 : [],
+              avoidedAllergens: sanitizeAllergens(parsed.avoidedAllergens),
             });
           } catch {
             // corrupted prefs -> keep defaults
@@ -118,7 +141,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SettingsContext.Provider value={{ ...prefs, loaded, update, isFavorite, toggleFavorite }}>
+    <SettingsContext.Provider
+      value={{ ...withSearchFeatures(prefs), loaded, update, isFavorite, toggleFavorite }}
+    >
       {children}
     </SettingsContext.Provider>
   );

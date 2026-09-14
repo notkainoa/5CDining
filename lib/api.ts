@@ -1,4 +1,5 @@
 import type { HallId } from './diningHalls';
+import type { Allergen } from './allergens';
 
 const BASE = 'https://five-c-menu-api.kainoanewton.workers.dev';
 
@@ -7,7 +8,10 @@ export interface MenuItem {
   description?: string;
   vegan?: boolean;
   vegetarian?: boolean;
+  glutenFree?: boolean;
+  plantBased?: boolean;
   calories?: number;
+  allergens?: Allergen[];
 }
 
 export interface Station {
@@ -15,8 +19,12 @@ export interface Station {
   items: MenuItem[];
 }
 
+/** Normalized meal slot from the API. Omitted when the school name matches none of these. */
+export type MealPeriod = 'breakfast' | 'brunch' | 'lunch' | 'dinner' | 'late_night';
+
 export interface Meal {
   name: string;
+  period?: MealPeriod;
   stations: Station[];
   startTime?: string;
   endTime?: string;
@@ -43,10 +51,31 @@ export function formatYMDForApi(d: Date): string {
   return toYMD(d);
 }
 
-/** Fetch one hall + one date. Throws on network/HTTP errors. */
+/**
+ * Fetch one hall + one date.
+ * 400/404 (including "date must be today or tomorrow") map to `unavailable`
+ * so the screen can show the empty state instead of a hard error.
+ * Other HTTP/network failures still throw.
+ */
 export async function fetchHallMenu(hall: HallId, date: Date): Promise<HallMenu> {
   const ymd = formatYMDForApi(date);
   const res = await fetch(`${BASE}/v1/menus/${hall}?date=${ymd}`);
+  if (res.status === 400 || res.status === 404) {
+    let code: string | undefined;
+    try {
+      const body = (await res.json()) as { error?: { code?: string } };
+      code = body.error?.code;
+    } catch {
+      // empty or non-JSON body
+    }
+    return {
+      hall,
+      date: ymd,
+      status: 'unavailable',
+      error: code ?? `http_${res.status}`,
+      meals: null,
+    };
+  }
   if (!res.ok) throw new Error(`Menu request failed (${res.status})`);
   return (await res.json()) as HallMenu;
 }
@@ -129,27 +158,44 @@ export function mergeStations(meal: Meal): Meal {
   return { ...meal, stations: order.map((k) => byKey.get(k)!) };
 }
 
-/**
- * The API has no structured gluten-free flag — only menu text. Best-effort
- * check: counts when the name/description explicitly says so.
- */
+/** True only when the API published `glutenFree: true`. Missing is not gluten-free. */
 export function isGlutenFree(item: MenuItem): boolean {
-  const t = `${item.name} ${item.description ?? ''}`.toLowerCase();
-  return /gluten[-\s]?free|\bno gluten\b|\bgluten friendly\b|\bgf\b/.test(t);
+  return item.glutenFree === true;
+}
+
+/** True when any item on this meal actually sent the flag (including explicit false). */
+export function mealHasFlag(meal: Meal, key: 'glutenFree' | 'plantBased'): boolean {
+  return meal.stations.some((st) => st.items.some((it) => typeof it[key] === 'boolean'));
+}
+
+/** Hall-level: a meal with no flags should not disable the filter if another meal published them. */
+export function menusHaveFlag(meals: Meal[], key: 'glutenFree' | 'plantBased'): boolean {
+  return meals.some((meal) => mealHasFlag(meal, key));
 }
 
 export interface DietPrefs {
   veganOnly: boolean;
   vegetarianOnly: boolean;
+  glutenFreeOnly: boolean;
+  plantBasedOnly: boolean;
+  avoidedAllergens: Allergen[];
 }
 
 /**
  * Highlight (not hide) semantics: an item is "matching" when it satisfies
  * every enabled restriction. Non-matching items are grayed out but stay visible.
+ * Plant-based also matches vegan dishes, because Bon Appétit halls omit `plantBased`.
+ * Allergen hits gray a dish out. Missing `allergens` is treated as none listed.
  */
 export function matchesDiet(item: MenuItem, prefs: DietPrefs): boolean {
   if (prefs.veganOnly && !item.vegan) return false;
   if (prefs.vegetarianOnly && !(item.vegetarian || item.vegan)) return false;
+  if (prefs.glutenFreeOnly && !isGlutenFree(item)) return false;
+  if (prefs.plantBasedOnly && !(item.plantBased || item.vegan)) return false;
+  if (prefs.avoidedAllergens.length > 0) {
+    const listed = item.allergens;
+    if (listed?.some((a) => prefs.avoidedAllergens.includes(a))) return false;
+  }
   return true;
 }
 

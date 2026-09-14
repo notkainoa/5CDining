@@ -5,15 +5,15 @@
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~57.0.21",
+    "expo": "~57.0.22",
     "expo-constants": "~57.0.17",
     "expo-font": "~57.0.3",
-    "expo-linking": "~57.0.9",
-    "expo-router": "~57.0.20",
-    "expo-splash-screen": "~57.0.8",
+    "expo-linking": "~57.0.10",
+    "expo-router": "~57.0.21",
+    "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
-    "expo-symbols": "~57.0.2",
-    "expo-web-browser": "~57.0.2",
+    "expo-symbols": "~57.0.3",
+    "expo-web-browser": "~57.0.3",
     "fuse.js": "^7.5.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -32,7 +32,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "prettier": "^3.9.6",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "^4.131.2"
   },
   "scripts": {
     "start": "expo start",
@@ -42,6 +43,8 @@
     "web:clear": "expo start --web --clear",
     "export:web": "expo export --platform web",
     "serve:web": "npx serve dist",
+    "deploy": "npm run export:web && wrangler deploy",
+    "deploy:preview": "npm run export:web && wrangler versions upload",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."

@@ -53,10 +53,9 @@ const NativePager = forwardRef<NativePagerHandle, Props>(function NativePager(
       }
     >
       {Children.map(children, (child, i) => (
-        // Key by page name (set in _layout), NOT by index: inserting search at
-        // index 0 shifts every position, and index keys unmount/remount every
-        // page (resetting Settings scroll to top). Stable keys let React move
-        // each page's view to its new position instead.
+        // Key by page name (set in _layout), NOT by index: reordering halls
+        // shifts positions, and index keys unmount/remount every page.
+        // Stable keys let React move each page's view instead.
         <View
           key={isValidElement(child) && child.key != null ? child.key : i}
           collapsable={false}

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,13 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  fetchHallMenu,
   isGlutenFree,
   matchesDiet,
+  menusHaveFlag,
   mealHoursCompact,
-  mealTitle,
   mergeStations,
   pickCurrentMeal,
   shortMealName,
@@ -23,41 +20,26 @@ import {
   type Meal,
   type MenuItem,
 } from '@/lib/api';
-import { nowMinutesInLA } from '@/lib/dates';
-import { normalizeMealName, useDay } from '@/lib/day';
+import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
+import { Theme } from '@/constants/Theme';
+import { mealKey, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
+import { hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
+import { loadHallMenu } from '@/lib/menuCache';
 import { usePrefs } from '@/lib/settings';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useDim } from '@/lib/dim';
+import DietBadge from '@/components/DietBadge';
 import HeartButton from '@/components/HeartButton';
-
-/** In-memory menu cache: `${hall}:${yyyy-m-d}` -> HallMenu */
-const cache = new Map<string, HallMenu>();
-
-function cacheKey(hall: HallId, d: Date): string {
-  return `${hall}:${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
+import MealPicker from '@/components/MealPicker';
+import SchoolLogo from '@/components/SchoolLogo';
 
 export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
-
-  const theme = hall.colorDark;
-  const onTheme = hall.onColor;
-  // Solid school color at full opacity behind the menu.
-  const contentBg = hall.color;
-
-  // Selected day is shared across all hall pages via DayProvider — the
-  // persistent DayStrip above the pager owns selection, so swiping halls
-  // keeps the same day. The manually picked meal is shared the same way
-  // (by name), so McConnell lunch -> Frary lunch; halls missing that meal
-  // fall back to their live/first meal.
-  const { selected, date, mealName, selectMealName, stripHeight } = useDay();
-  const insets = useSafeAreaInsets();
-  // The day bar floats over the pager (absolute), so hall pages pad for it.
-  // Falls back to an estimate on the very first frame before measurement.
-  const stripPad = stripHeight > 0 ? stripHeight : insets.top + 78;
+  const { selected, date, mealName, selectMealName, nowMinutes } = useDay();
+  const { arm, disarm } = useDim();
+  const { join } = useHallBottomJoin();
+  const { expandAllDefault } = usePrefs();
 
   const [menu, setMenu] = useState<HallMenu | null>(null);
   const [closure, setClosure] = useState<HallClosure | null>(null);
@@ -65,36 +47,38 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openStations, setOpenStations] = useState<number[]>([]);
+  const [picker, setPicker] = useState<null | 'meal'>(null);
   const reqId = useRef(0);
 
-  // Stations are deduped: sources repeat e.g. "breakfast @ home" 3x per meal.
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
 
-  // Per-hall default: the live meal today, else the first meal.
   const autoIndex = useMemo(
-    () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutesInLA()) : 0),
-    [meals, selected],
+    () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
+    [meals, selected, nowMinutes],
   );
 
-  // Shared manual pick wins when this hall serves a meal by that name.
   const mealIndex = useMemo(() => {
     if (meals.length === 0) return 0;
     if (mealName) {
-      const j = meals.findIndex((m) => normalizeMealName(m.name) === mealName);
+      const j = meals.findIndex((m) => mealKey(m) === mealName);
       if (j >= 0) return j;
     }
     return autoIndex;
   }, [meals, mealName, autoIndex]);
 
-  // Collapse stations when the hall, day, or visible meal changes.
+  const expandAllRef = useRef(expandAllDefault);
+  expandAllRef.current = expandAllDefault;
+  const stationCount = meals[mealIndex]?.stations.length ?? 0;
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on context change
-    setOpenStations([]);
-  }, [hallId, date, mealIndex]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset open stations for a new menu
+    setOpenStations(
+      expandAllRef.current && stationCount > 0 ? Array.from({ length: stationCount }, (_, i) => i) : [],
+    );
+  }, [hallId, date, mealIndex, stationCount]);
 
   const load = useCallback(
     async (force = false) => {
-      // Disabled halls never hit the API — show the closure message instead.
       const closed = getClosure(hallId, date);
       setClosure(closed);
       if (closed) {
@@ -104,24 +88,13 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         setRefreshing(false);
         return;
       }
-      const key = cacheKey(hallId, date);
-      const apply = (data: HallMenu) => {
-        setMenu(data);
-      };
-      if (!force && cache.has(key)) {
-        apply(cache.get(key)!);
-        setLoading(false);
-        setError(null);
-        return;
-      }
       const id = ++reqId.current;
       if (!force) setLoading(true);
       setError(null);
       try {
-        const data = await fetchHallMenu(hallId, date);
+        const data = await loadHallMenu(hallId, date, force);
         if (reqId.current !== id) return;
-        cache.set(key, data);
-        apply(data);
+        setMenu(data);
       } catch (e) {
         if (reqId.current !== id) return;
         setError(e instanceof Error ? e.message : 'Could not load menu');
@@ -140,250 +113,275 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     load();
   }, [load]);
 
-  const selectMeal = (i: number) => {
-    const m = meals[i];
-    if (m) selectMealName(m.name);
-    setOpenStations([]);
+  const closePicker = () => {
+    setPicker(null);
+    disarm();
   };
 
-  const c = {
-    bg: dark ? '#000' : '#F2F2F7',
-    card: dark ? '#1C1C1E' : '#fff',
-    text: dark ? '#fff' : '#111',
-    sub: dark ? '#AEAEB2' : '#666',
-    border: dark ? '#38383A' : '#E5E5EA',
+  const selectMeal = (i: number) => {
+    const m = meals[i];
+    if (m) selectMealName(mealKey(m));
+    closePicker();
+  };
+
+  const openMealPicker = () => {
+    if (picker === 'meal') {
+      closePicker();
+      return;
+    }
+    arm(closePicker);
+    setPicker('meal');
   };
 
   const meal = meals[mealIndex];
+  const hours = meal ? mealHoursCompact(meal) : null;
 
   return (
-    <View style={[styles.page, { backgroundColor: contentBg }]}>
-      {/* Themed header: hall name, then meal tabs (day bar floats above) */}
-      <View style={[styles.hero, { backgroundColor: theme, paddingTop: stripPad }]}>
+    <View style={styles.page}>
+      {picker ? (
+        <Pressable style={styles.pageOverlay} onPress={closePicker} accessibilityLabel="Dismiss" />
+      ) : null}
+      <View
+        style={[
+          styles.school,
+          {
+            backgroundColor: hall.color,
+            borderBottomLeftRadius: nestedRadius(join.bl),
+            borderBottomRightRadius: nestedRadius(join.br),
+          },
+          picker ? styles.schoolFront : null,
+        ]}
+      >
+        {picker ? (
+          <Pressable style={styles.overlay} onPress={closePicker} accessibilityLabel="Dismiss" />
+        ) : null}
+
         <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text style={[styles.hallName, { color: onTheme }]}>{hall.name}</Text>
-            <Text style={[styles.college, { color: onTheme }]}>{hall.college}</Text>
-          </View>
-          {hall.logoOnWhite ? (
-            <View style={styles.badge}>
-              <Image source={hall.logo} style={styles.badgeLogo} resizeMode="contain" />
-            </View>
-          ) : (
-            <Image source={hall.logo} style={styles.logo} resizeMode="contain" />
-          )}
+          <Text style={[styles.hallName, { color: hall.onColor }]}>{hall.name}</Text>
+          <SchoolLogo hall={hall} size={52} />
         </View>
 
-        {!loading && !error && meals.length > 0 ? (
-          <View style={styles.mealTabs}>
-            {meals.map((m, i) => {
-              const isSel = i === mealIndex;
-              const hours = mealHoursCompact(m);
-              return (
-                <Pressable
-                  key={`${m.name}-${i}`}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isSel }}
-                  accessibilityLabel={mealTitle(m).name}
-                  onPress={() => selectMeal(i)}
-                  style={[
-                    styles.mealTab,
-                    { backgroundColor: hall.color, borderColor: isSel ? '#fff' : 'transparent' },
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={[styles.mealTabName, { color: '#fff' }]}
-                  >
-                    {shortMealName(m.name)}
-                  </Text>
-                  {hours ? (
-                    <Text
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      style={[styles.mealTabHours, { color: '#fff' }]}
-                    >
-                      {hours}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-      </View>
+        <View
+          style={[styles.mealRow, picker === 'meal' && styles.raiseOn]}
+          pointerEvents="box-none"
+        >
+          {!loading && !error && meals.length > 0 ? (
+            <Pressable
+              onPress={openMealPicker}
+              style={[styles.mealHit, picker === 'meal' && styles.triggerOn]}
+              accessibilityRole="button"
+              accessibilityLabel={`${shortMealName(meal?.name ?? 'Meal')}, choose meal`}
+            >
+              <Text
+                style={[
+                  styles.mealPillName,
+                  { color: picker === 'meal' ? Theme.white : hall.onColor },
+                ]}
+              >
+                {shortMealName(meal?.name ?? '')}
+              </Text>
+              <Text
+                style={[styles.mealChev, { color: picker === 'meal' ? Theme.white : hall.onColor }]}
+              >
+                ▾
+              </Text>
+            </Pressable>
+          ) : null}
+          {hours ? (
+            <View style={styles.hoursWrap} pointerEvents="none">
+              <Text style={[styles.mealHours, { color: hall.onColor }]}>{hours}</Text>
+              {picker === 'meal' ? <View pointerEvents="none" style={styles.hoursScrim} /> : null}
+            </View>
+          ) : null}
+          {picker === 'meal' ? (
+            <View style={styles.dropAbs} pointerEvents="box-none">
+              <MealPicker meals={meals} selected={mealIndex} onSelect={selectMeal} />
+            </View>
+          ) : null}
+        </View>
 
-      {/* Content: the selected meal only, directly on the school color */}
-      <ScrollView
-        style={[styles.menu, { backgroundColor: contentBg }]}
-        contentContainerStyle={styles.menuContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load(true);
-            }}
-          />
-        }
-      >
-        {loading ? (
-          <View style={[styles.stateCard, { backgroundColor: c.card, borderColor: c.border }]}>
-            <ActivityIndicator size="large" />
-            <Text style={[styles.stateText, { color: c.sub }]}>Loading menu…</Text>
-          </View>
-        ) : error ? (
-          <View style={[styles.stateCard, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.stateTitle, { color: c.text }]}>Couldn&apos;t load menu</Text>
-            <Text style={[styles.stateText, { color: c.sub }]}>{error}</Text>
-            <Pressable
-              onPress={() => {
-                setLoading(true);
-                load(true);
-              }}
-              style={[styles.retry, { backgroundColor: theme }]}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : closure ? (
-          <View style={[styles.stateCard, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.stateTitle, { color: c.text }]}>
-              {hall.name} closed until {closureLabel(closure)}
-            </Text>
-            <Text style={[styles.stateText, { color: c.sub }]}>{closure.reason}</Text>
-          </View>
-        ) : !meal ? (
-          <View style={[styles.stateCard, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.stateTitle, { color: c.text }]}>No menu posted</Text>
-            <Text style={[styles.stateText, { color: c.sub }]}>
-              {menu?.status === 'unavailable'
-                ? 'This hall has no data for this date yet — often posted closer to the day.'
-                : 'Nothing posted for this date yet.'}
-            </Text>
-            <Pressable
-              onPress={() => {
-                setLoading(true);
-                load(true);
-              }}
-              style={[styles.retry, { backgroundColor: theme }]}
-            >
-              <Text style={styles.retryText}>Check again</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <MealBody
-            meal={meal}
-            accent={hall.colorDark}
-            openStations={openStations}
-            setOpenStations={setOpenStations}
-          />
-        )}
-        <View style={{ height: 24 }} />
-      </ScrollView>
+        <View style={styles.food}>
+          <ScrollView
+            style={styles.menu}
+            contentContainerStyle={styles.menuContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  load(true);
+                }}
+              />
+            }
+          >
+            {loading ? (
+              <View style={styles.state}>
+                <ActivityIndicator size="large" color={Theme.darkGray} />
+                <Text style={styles.stateText}>Loading menu…</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.state}>
+                <Text style={styles.stateTitle}>Couldn&apos;t load menu</Text>
+                <Text style={styles.stateText}>{error}</Text>
+                <Pressable
+                  onPress={() => {
+                    setLoading(true);
+                    load(true);
+                  }}
+                  style={[styles.retry, { backgroundColor: hall.color }]}
+                >
+                  <Text style={[styles.retryText, { color: hall.onColor }]}>Retry</Text>
+                </Pressable>
+              </View>
+            ) : closure ? (
+              <View style={styles.state}>
+                <Text style={styles.stateTitle}>
+                  {hall.name} closed until {closureLabel(closure)}
+                </Text>
+                <Text style={styles.stateText}>{closure.reason}</Text>
+              </View>
+            ) : !meal ? (
+              <View style={styles.state}>
+                <Text style={styles.stateTitle}>No menu posted</Text>
+                <Text style={styles.stateText}>
+                  {menu?.error === 'unsupported_date'
+                    ? 'Only today and tomorrow are posted.'
+                    : menu?.status === 'unavailable'
+                      ? 'This hall has no data for this date yet. Menus often go up closer to the day.'
+                      : 'Nothing posted for this date yet.'}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setLoading(true);
+                    load(true);
+                  }}
+                  style={[styles.retry, { backgroundColor: hall.color }]}
+                >
+                  <Text style={[styles.retryText, { color: hall.onColor }]}>Check again</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <MealBody
+                hallId={hallId}
+                meal={meal}
+                hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
+                openStations={openStations}
+                setOpenStations={setOpenStations}
+              />
+            )}
+            <View style={{ height: 16 }} />
+          </ScrollView>
+        </View>
+      </View>
     </View>
   );
 }
 
 function MealBody({
+  hallId,
   meal,
-  accent,
+  hasGlutenFree,
   openStations,
   setOpenStations,
 }: {
+  hallId: HallId;
   meal: Meal;
-  accent: string;
+  hasGlutenFree: boolean;
   openStations: number[];
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
-  const { name, hours } = mealTitle(meal);
-
-  // Menu body always sits directly on the school color, so all text is white
-  // in both modes (secondary text at reduced opacity).
-  const text = '#fff';
-  const sub = 'rgba(255, 255, 255, 0.75)';
-  const border = 'rgba(255, 255, 255, 0.25)';
-
-  const itemCount = meal.stations.reduce((n, s) => n + s.items.length, 0);
+  const allergenFilterOn = prefs.avoidedAllergens.length > 0;
+  const canFilterAllergens = allergenFilterOn && hallPublishesAllergens(hallId);
+  const glutenFreeOnly = prefs.glutenFreeOnly && hasGlutenFree;
+  const filtersActive =
+    prefs.veganOnly ||
+    prefs.vegetarianOnly ||
+    glutenFreeOnly ||
+    prefs.plantBasedOnly ||
+    canFilterAllergens;
+  const isMatch = (it: MenuItem) =>
+    matchesDiet(it, {
+      veganOnly: prefs.veganOnly,
+      vegetarianOnly: prefs.vegetarianOnly,
+      glutenFreeOnly,
+      plantBasedOnly: prefs.plantBasedOnly,
+      avoidedAllergens: canFilterAllergens ? prefs.avoidedAllergens : [],
+    });
+  const allOpen =
+    meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
+  const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
+  const matchCount = filtersActive
+    ? meal.stations.reduce((n, st) => n + st.items.filter(isMatch).length, 0)
+    : dishCount;
 
   const toggleStation = (i: number) =>
     setOpenStations((prev: number[]) =>
       prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i],
     );
 
-  const filtersActive = prefs.veganOnly || prefs.vegetarianOnly;
-
-  const isMatch = (it: MenuItem) => matchesDiet(it, prefs);
-
-  const allOpen =
-    meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
-
   return (
     <View style={styles.mealBody}>
-      <View style={styles.mealHead}>
-        <View style={styles.mealTitles}>
-          <Text style={[styles.mealName, { color: text }]}>{name}</Text>
-          {hours ? (
-            <Text style={[styles.mealHours, { color: sub }]}>{hours}</Text>
-          ) : (
-            <Text style={[styles.mealHours, { color: sub }]}>
-              {meal.stations.length} stations · {itemCount} items
-            </Text>
-          )}
-        </View>
+      <View style={styles.bulkRow}>
+        <Text style={styles.dishCount}>
+          {filtersActive ? `${matchCount}/${dishCount}` : dishCount}{' '}
+          {dishCount === 1 ? 'dish' : 'dishes'}
+        </Text>
         <Pressable
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={allOpen ? 'Collapse all stations' : 'Expand all stations'}
           onPress={() => setOpenStations(allOpen ? [] : meal.stations.map((_, i) => i))}
-          style={styles.bulkBtn}
         >
-          <Text style={[styles.bulk, { color: accent }]}>
-            {allOpen ? 'Collapse all' : 'Expand all'}
-          </Text>
+          <Text style={styles.bulk}>{allOpen ? 'Collapse all' : 'Expand all'}</Text>
         </Pressable>
       </View>
+      {prefs.glutenFreeOnly && !glutenFreeOnly ? (
+        <Text style={styles.filterNote}>No gluten-free labels for this hall.</Text>
+      ) : null}
+      {allergenFilterOn && !hallPublishesAllergens(hallId) ? (
+        <Text style={styles.filterNote}>No allergen list for this hall.</Text>
+      ) : null}
       {meal.stations.map((st, si) => {
-        const matchCount = st.items.filter(isMatch).length;
         const sOpen = openStations.includes(si);
-        const vg = st.items.filter((i) => i.vegan).length;
+        const matchCount = st.items.filter(isMatch).length;
         return (
-          <View key={`${st.name}-${si}`} style={[styles.station, { backgroundColor: accent }]}>
+          <View key={`${st.name}-${si}`} style={styles.station}>
             <Pressable
               onPress={() => toggleStation(si)}
               accessibilityRole="button"
               accessibilityState={{ expanded: sOpen }}
               style={styles.stationHeader}
             >
-              <Text style={[styles.stationName, { color: text }]}>{toTitle(st.name)}</Text>
-              <Text style={[styles.stationMeta, { color: sub }]}>
-                {filtersActive ? `${matchCount} of ${st.items.length} match` : st.items.length}
-                {prefs.veganOnly ? ` · ${vg} VG` : ''}
-              </Text>
-              <Text style={[styles.chev, { color: sub }]}>{sOpen ? '▾' : '▸'}</Text>
+              <Text style={styles.stationName}>{toTitle(st.name)}</Text>
+              <View style={styles.stationLine} />
+              {filtersActive ? (
+                <Text style={styles.stationMeta}>
+                  {matchCount}/{st.items.length}
+                </Text>
+              ) : null}
+              <Text style={styles.stationChev}>{sOpen ? '▾' : '›'}</Text>
             </Pressable>
-            {sOpen ? (
-              <View style={styles.items}>
-                {st.items.map((it, ii) => {
+            {sOpen
+              ? st.items.map((it, ii) => {
                   const match = !filtersActive || isMatch(it);
                   return (
                     <View
                       key={`${it.name}-${ii}`}
-                      style={[styles.item, { borderTopColor: border, opacity: match ? 1 : 0.4 }]}
+                      style={[styles.item, { opacity: match ? 1 : 0.4 }]}
                     >
                       <View style={styles.itemRow}>
-                        <Text style={[styles.itemName, { color: text }]}>{it.name}</Text>
-                        <DietBadges item={it} showCalories={prefs.showCalories} dimmed={!match} />
+                        <Text style={styles.itemName}>{it.name}</Text>
+                        <DietLabels item={it} showCalories={prefs.showCalories} />
                         {prefs.favoritesEnabled ? <HeartButton label={it.name} /> : null}
                       </View>
                       {prefs.showDescriptions && it.description ? (
-                        <Text style={[styles.itemDesc, { color: sub }]}>{it.description}</Text>
+                        <Text style={styles.itemDesc}>{it.description}</Text>
                       ) : null}
                     </View>
                   );
-                })}
-              </View>
-            ) : null}
+                })
+              : null}
           </View>
         );
       })}
@@ -391,35 +389,18 @@ function MealBody({
   );
 }
 
-function DietBadges({
-  item,
-  showCalories,
-  dimmed,
-}: {
-  item: MenuItem;
-  showCalories: boolean;
-  dimmed: boolean;
-}) {
+function DietLabels({ item, showCalories }: { item: MenuItem; showCalories: boolean }) {
   return (
-    <View style={[styles.badges, dimmed && styles.badgesDimmed]}>
+    <View style={styles.labels}>
       {item.vegan ? (
-        <View style={[styles.badgeChip, { backgroundColor: '#2E7D32' }]}>
-          <Text style={styles.chipText}>VG</Text>
-        </View>
+        <DietBadge kind="vegan" />
       ) : item.vegetarian ? (
-        <View style={[styles.badgeChip, { backgroundColor: '#7CB342' }]}>
-          <Text style={styles.chipText}>V</Text>
-        </View>
+        <DietBadge kind="vegetarian" />
       ) : null}
-      {isGlutenFree(item) ? (
-        <View style={[styles.badgeChip, { backgroundColor: '#8D6E63' }]}>
-          <Text style={styles.chipText}>GF</Text>
-        </View>
-      ) : null}
+      {isGlutenFree(item) ? <DietBadge kind="glutenFree" /> : null}
+      {item.plantBased && !item.vegan ? <DietBadge kind="plantBased" /> : null}
       {showCalories && typeof item.calories === 'number' ? (
-        <Text style={[styles.cal, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-          {item.calories} cal
-        </Text>
+        <Text style={styles.label}>{item.calories} cal</Text>
       ) : null}
     </View>
   );
@@ -434,85 +415,174 @@ function toTitle(s: string): string {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
-  hero: {},
+  page: {
+    flex: 1,
+    backgroundColor: Theme.darkerGray,
+  },
+  pageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Theme.overlay,
+    zIndex: 1,
+  },
+  school: {
+    flex: 1,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: SCHOOL_RADIUS,
+    borderBottomRightRadius: SCHOOL_RADIUS,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingTop: 10,
+  },
+  schoolFront: {
+    zIndex: 2,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Theme.overlay,
+    zIndex: 1,
+  },
+  raiseOn: {
+    zIndex: 2,
+    elevation: 8,
+    position: 'relative',
+  },
+  dropAbs: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    zIndex: 2,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
+    paddingBottom: 8,
+    gap: 12,
   },
-  headerLeft: { flex: 1 },
-  hallName: { fontSize: 26, fontWeight: '800' },
-  college: { fontSize: 14, marginTop: 2, opacity: 0.9 },
-  logo: { width: 56, height: 56 },
-  badge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
+  hallName: {
+    color: Theme.white,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  mealRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+    minHeight: 44,
+  },
+  mealHit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  triggerOn: {
+    backgroundColor: Theme.trigger,
+    marginHorizontal: -8,
+    paddingHorizontal: 12,
+  },
+  mealPillName: {
+    color: Theme.white,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  mealChev: { color: Theme.white, fontSize: 14, fontWeight: '700' },
+  mealHours: {
+    color: Theme.white,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  hoursWrap: {
+    flex: 1,
     justifyContent: 'center',
+  },
+  hoursScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Theme.overlay,
+  },
+  food: {
+    flex: 1,
+    zIndex: 0,
+    backgroundColor: Theme.white,
+    borderRadius: 20,
+    marginHorizontal: 8,
+    marginBottom: 8,
     overflow: 'hidden',
   },
-  badgeLogo: { width: 44, height: 44 },
-  mealTabs: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  mealTab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 0,
-  },
-  mealTabName: { fontSize: 13, fontWeight: '700' },
-  mealTabHours: { fontSize: 10, marginTop: 2, opacity: 0.9 },
   menu: { flex: 1 },
-  menuContent: { paddingHorizontal: 12, paddingTop: 12, gap: 12 },
-  stateCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 24,
+  menuContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+  state: { alignItems: 'center', paddingVertical: 28, gap: 8 },
+  stateTitle: { fontSize: 18, fontWeight: '700', color: Theme.black, textAlign: 'center' },
+  stateText: { fontSize: 14, color: Theme.foodItem, textAlign: 'center' },
+  retry: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryText: { color: Theme.white, fontWeight: '700' },
+  mealBody: { gap: 4 },
+  bulkRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  bulk: { fontSize: 13, fontWeight: '700', color: Theme.foodItem },
+  dishCount: { fontSize: 13, fontWeight: '600', color: Theme.foodItem },
+  filterNote: { fontSize: 13, lineHeight: 18, color: Theme.foodItem, marginBottom: 8 },
+  station: { paddingBottom: 6 },
+  stationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
     gap: 8,
   },
-  stateTitle: { fontSize: 18, fontWeight: '700' },
-  stateText: { fontSize: 14, textAlign: 'center' },
-  retry: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: '700' },
-  mealBody: { gap: 8 },
-  mealHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  mealTitles: { flex: 1 },
-  mealName: { fontSize: 19, fontWeight: '800' },
-  mealHours: { fontSize: 13, marginTop: 2 },
-  bulk: { fontSize: 13, fontWeight: '800' },
-  bulkBtn: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+  stationName: {
+    color: Theme.black,
+    fontSize: 16,
+    fontWeight: '700',
   },
-  station: { borderRadius: 10, overflow: 'hidden' },
-  stationHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
-  stationName: { flex: 1, fontSize: 15, fontWeight: '700' },
-  stationMeta: { fontSize: 12 },
-  chev: { fontSize: 18, width: 20, textAlign: 'center' },
-  items: { paddingHorizontal: 12, paddingBottom: 8 },
-  item: { borderTopWidth: 1, paddingVertical: 8 },
+  stationLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Theme.black,
+  },
+  stationMeta: { fontSize: 11, color: Theme.foodItem, fontWeight: '600' },
+  stationChev: { color: Theme.black, fontSize: 18, width: 18, textAlign: 'center' },
+  item: { paddingLeft: 2, paddingBottom: 10 },
   itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  itemName: { flex: 1, fontSize: 14, fontWeight: '600' },
-  itemDesc: { fontSize: 12, marginTop: 2, lineHeight: 16 },
-  badges: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  badgesDimmed: { opacity: 0.6 },
-  badgeChip: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
-  chipText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  cal: { fontSize: 11, color: '#8E8E93' },
+  itemName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: Theme.foodItem,
+  },
+  itemDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 3,
+    color: Theme.foodMuted,
+    paddingRight: 8,
+  },
+  labels: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 1 },
+  label: { fontSize: 12, fontWeight: '600', color: Theme.foodItem },
 });

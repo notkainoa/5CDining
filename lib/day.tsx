@@ -1,17 +1,19 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { weekDates } from './dates';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
+import type { Meal } from './api';
+import { nowMinutesInLA, sameDay, weekDates } from './dates';
+import { invalidateMenuCache } from './menuCache';
 
 interface DayCtx {
   days: Date[];
   selected: number;
   date: Date;
   selectDate: (i: number) => void;
-  /** Normalized name of the manually picked meal (e.g. "lunch"), or null if none yet. */
+  /** Shared meal slot across halls: API `period` when present, else the normalized school name. */
   mealName: string | null;
   selectMealName: (name: string) => void;
-  /** Measured height of the floating day bar (0 until measured). */
-  stripHeight: number;
-  setStripHeight: (h: number) => void;
+  /** Claremont minutes after midnight. Refreshed when the app is opened. */
+  nowMinutes: number;
 }
 
 const DayContext = createContext<DayCtx>({
@@ -21,8 +23,7 @@ const DayContext = createContext<DayCtx>({
   selectDate: () => {},
   mealName: null,
   selectMealName: () => {},
-  stripHeight: 0,
-  setStripHeight: () => {},
+  nowMinutes: 0,
 });
 
 /** Meal identity across halls: case/whitespace-insensitive name. */
@@ -30,16 +31,63 @@ export function normalizeMealName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** Shared selected day across all hall pages — the date strip persists like the bottom bar. */
+/**
+ * Identity used when the user picks a meal, so Hoch `DINNER` and Collins `Dinner`
+ * stay aligned, and `Continental Breakfast` counts as breakfast.
+ */
+export function mealKey(meal: Meal): string {
+  return meal.period ?? normalizeMealName(meal.name);
+}
+
+/** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
-  const days = useMemo(() => weekDates(), []);
+  const [days, setDays] = useState(() => weekDates());
   const [selected, setSelected] = useState(0);
   const [mealName, setMealName] = useState<string | null>(null);
-  const [stripHeight, setStripHeightState] = useState(0);
-  const setStripHeight = useCallback(
-    (h: number) => setStripHeightState((prev) => (prev === h ? prev : h)),
-    [],
-  );
+  const [nowMinutes, setNowMinutes] = useState(nowMinutesInLA);
+  const selectedRef = useRef(selected);
+  const daysRef = useRef(days);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+    daysRef.current = days;
+  }, [selected, days]);
+
+  useEffect(() => {
+    const syncWindow = (opts: { fromResume: boolean }) => {
+      const nextDays = weekDates();
+      const prevDays = daysRef.current;
+      let nextSelected = selectedRef.current;
+      if (!sameDay(nextDays[0], prevDays[0])) {
+        invalidateMenuCache();
+        const prevDate = prevDays[nextSelected];
+        const kept = prevDate ? nextDays.findIndex((d) => sameDay(d, prevDate)) : 0;
+        nextSelected = kept >= 0 ? kept : 0;
+        setDays(nextDays);
+        setSelected(nextSelected);
+        if (nextSelected === 0) setMealName(null);
+      }
+      setNowMinutes(nowMinutesInLA());
+      if (opts.fromResume && nextSelected === 0) setMealName(null);
+    };
+
+    let leftForBackground = false;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background') {
+        leftForBackground = true;
+        return;
+      }
+      if (next !== 'active' || !leftForBackground) return;
+      leftForBackground = false;
+      syncWindow({ fromResume: true });
+    });
+    const tick = setInterval(() => syncWindow({ fromResume: false }), 60_000);
+    return () => {
+      sub.remove();
+      clearInterval(tick);
+    };
+  }, []);
+
   const value = useMemo<DayCtx>(
     () => ({
       days,
@@ -48,10 +96,9 @@ export function DayProvider({ children }: { children: ReactNode }) {
       selectDate: setSelected,
       mealName,
       selectMealName: (name: string) => setMealName(normalizeMealName(name)),
-      stripHeight,
-      setStripHeight,
+      nowMinutes,
     }),
-    [days, selected, mealName, stripHeight, setStripHeight],
+    [days, selected, mealName, nowMinutes],
   );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }

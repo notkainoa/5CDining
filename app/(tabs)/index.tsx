@@ -1,11 +1,10 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
-import type { HallId } from '@/lib/diningHalls';
 import { usePrefs } from '@/lib/settings';
 
-/** Launch routing: search page when enabled, else the first hall in the order. */
+/** Launch routing: first hall in the user's order. */
 export default function Index() {
-  const { loaded, searchEnabled, hallOrder } = usePrefs();
+  const { loaded, hallOrder } = usePrefs();
   if (!loaded) {
     return (
       <View style={styles.splash}>
@@ -13,8 +12,7 @@ export default function Index() {
       </View>
     );
   }
-  const target: HallId | 'search' = searchEnabled ? 'search' : hallOrder[0];
-  return <Redirect href={target === 'search' ? '/(tabs)/search' : `/(tabs)/${target}`} />;
+  return <Redirect href={`/(tabs)/${hallOrder[0]}`} />;
 }
 
 const styles = StyleSheet.create({

@@ -14,8 +14,7 @@ export interface HallClosure {
 /**
  * HOW TO DISABLE A DINING HALL:
  * Add one line below with the hall, why, and when it reopens.
- * The bottom-bar tab grays out and the hall page shows
- * "{Hall} closed until {label}" instead of hitting the API.
+ * The hall page shows "{Hall} closed until {label}" instead of hitting the API.
  *
  * Example:
  *   { hall: 'oldenborg', reason: 'Building construction', until: '2028-08-24', untilLabel: 'Fall 2028' },
