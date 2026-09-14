@@ -21,7 +21,7 @@ import {
 } from '@/lib/api';
 import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
-import { normalizeMealName, useDay } from '@/lib/day';
+import { mealKey, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadHallMenu } from '@/lib/menuCache';
@@ -58,7 +58,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const mealIndex = useMemo(() => {
     if (meals.length === 0) return 0;
     if (mealName) {
-      const j = meals.findIndex((m) => normalizeMealName(m.name) === mealName);
+      const j = meals.findIndex((m) => mealKey(m) === mealName);
       if (j >= 0) return j;
     }
     return autoIndex;
@@ -118,7 +118,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
   const selectMeal = (i: number) => {
     const m = meals[i];
-    if (m) selectMealName(m.name);
+    if (m) selectMealName(mealKey(m));
     closePicker();
   };
 
