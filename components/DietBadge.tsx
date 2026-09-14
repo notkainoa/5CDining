@@ -4,6 +4,8 @@ import { Theme } from '@/constants/Theme';
 const DIET = {
   vegan: { text: 'VGN', bg: Theme.vegan, label: 'Vegan' },
   vegetarian: { text: 'VEG', bg: Theme.vegetarian, label: 'Vegetarian' },
+  glutenFree: { text: 'GF', bg: Theme.glutenFree, label: 'Gluten free' },
+  plantBased: { text: 'PB', bg: Theme.plantBased, label: 'Plant based' },
 } as const;
 
 export default function DietBadge({ kind }: { kind: keyof typeof DIET }) {

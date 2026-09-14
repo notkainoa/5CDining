@@ -11,6 +11,7 @@ import {
 import {
   isGlutenFree,
   matchesDiet,
+  menusHaveFlag,
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
@@ -259,7 +260,12 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                 </Pressable>
               </View>
             ) : (
-              <MealBody meal={meal} openStations={openStations} setOpenStations={setOpenStations} />
+              <MealBody
+                meal={meal}
+                hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
+                openStations={openStations}
+                setOpenStations={setOpenStations}
+              />
             )}
             <View style={{ height: 16 }} />
           </ScrollView>
@@ -271,16 +277,26 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
 function MealBody({
   meal,
+  hasGlutenFree,
   openStations,
   setOpenStations,
 }: {
   meal: Meal;
+  hasGlutenFree: boolean;
   openStations: number[];
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
-  const filtersActive = prefs.veganOnly || prefs.vegetarianOnly;
-  const isMatch = (it: MenuItem) => matchesDiet(it, prefs);
+  const glutenFreeOnly = prefs.glutenFreeOnly && hasGlutenFree;
+  const filtersActive =
+    prefs.veganOnly || prefs.vegetarianOnly || glutenFreeOnly || prefs.plantBasedOnly;
+  const isMatch = (it: MenuItem) =>
+    matchesDiet(it, {
+      veganOnly: prefs.veganOnly,
+      vegetarianOnly: prefs.vegetarianOnly,
+      glutenFreeOnly,
+      plantBasedOnly: prefs.plantBasedOnly,
+    });
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
   const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
@@ -309,6 +325,9 @@ function MealBody({
           <Text style={styles.bulk}>{allOpen ? 'Collapse all' : 'Expand all'}</Text>
         </Pressable>
       </View>
+      {prefs.glutenFreeOnly && !glutenFreeOnly ? (
+        <Text style={styles.filterNote}>No gluten-free labels for this hall.</Text>
+      ) : null}
       {meal.stations.map((st, si) => {
         const sOpen = openStations.includes(si);
         const matchCount = st.items.filter(isMatch).length;
@@ -364,7 +383,8 @@ function DietLabels({ item, showCalories }: { item: MenuItem; showCalories: bool
       ) : item.vegetarian ? (
         <DietBadge kind="vegetarian" />
       ) : null}
-      {isGlutenFree(item) ? <Text style={styles.label}>GF</Text> : null}
+      {isGlutenFree(item) ? <DietBadge kind="glutenFree" /> : null}
+      {item.plantBased && !item.vegan ? <DietBadge kind="plantBased" /> : null}
       {showCalories && typeof item.calories === 'number' ? (
         <Text style={styles.label}>{item.calories} cal</Text>
       ) : null}
@@ -514,6 +534,7 @@ const styles = StyleSheet.create({
   },
   bulk: { fontSize: 13, fontWeight: '700', color: Theme.foodItem },
   dishCount: { fontSize: 13, fontWeight: '600', color: Theme.foodItem },
+  filterNote: { fontSize: 13, lineHeight: 18, color: Theme.foodItem, marginBottom: 8 },
   station: { paddingBottom: 6 },
   stationHeader: {
     flexDirection: 'row',

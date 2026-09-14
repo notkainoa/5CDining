@@ -7,6 +7,8 @@ export interface MenuItem {
   description?: string;
   vegan?: boolean;
   vegetarian?: boolean;
+  glutenFree?: boolean;
+  plantBased?: boolean;
   calories?: number;
 }
 
@@ -154,27 +156,38 @@ export function mergeStations(meal: Meal): Meal {
   return { ...meal, stations: order.map((k) => byKey.get(k)!) };
 }
 
-/**
- * The API has no structured gluten-free flag — only menu text. Best-effort
- * check: counts when the name/description explicitly says so.
- */
+/** True only when the API published `glutenFree: true`. Missing is not gluten-free. */
 export function isGlutenFree(item: MenuItem): boolean {
-  const t = `${item.name} ${item.description ?? ''}`.toLowerCase();
-  return /gluten[-\s]?free|\bno gluten\b|\bgluten friendly\b|\bgf\b/.test(t);
+  return item.glutenFree === true;
+}
+
+/** True when any item on this meal actually sent the flag (including explicit false). */
+export function mealHasFlag(meal: Meal, key: 'glutenFree' | 'plantBased'): boolean {
+  return meal.stations.some((st) => st.items.some((it) => typeof it[key] === 'boolean'));
+}
+
+/** Hall-level: a meal with no flags should not disable the filter if another meal published them. */
+export function menusHaveFlag(meals: Meal[], key: 'glutenFree' | 'plantBased'): boolean {
+  return meals.some((meal) => mealHasFlag(meal, key));
 }
 
 export interface DietPrefs {
   veganOnly: boolean;
   vegetarianOnly: boolean;
+  glutenFreeOnly: boolean;
+  plantBasedOnly: boolean;
 }
 
 /**
  * Highlight (not hide) semantics: an item is "matching" when it satisfies
  * every enabled restriction. Non-matching items are grayed out but stay visible.
+ * Plant-based also matches vegan dishes, because Bon Appétit halls omit `plantBased`.
  */
 export function matchesDiet(item: MenuItem, prefs: DietPrefs): boolean {
   if (prefs.veganOnly && !item.vegan) return false;
   if (prefs.vegetarianOnly && !(item.vegetarian || item.vegan)) return false;
+  if (prefs.glutenFreeOnly && !isGlutenFree(item)) return false;
+  if (prefs.plantBasedOnly && !(item.plantBased || item.vegan)) return false;
   return true;
 }
 

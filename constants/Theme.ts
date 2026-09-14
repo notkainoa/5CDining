@@ -12,4 +12,6 @@ export const Theme = {
   foodMuted: 'rgba(0, 0, 0, 0.55)',
   vegan: '#2f9e44',
   vegetarian: '#f08c00',
+  glutenFree: '#364fc7',
+  plantBased: '#087f5b',
 } as const;
