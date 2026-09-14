@@ -24,6 +24,7 @@ import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/Hal
 import { Theme } from '@/constants/Theme';
 import { mealKey, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
+import { hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadHallMenu } from '@/lib/menuCache';
 import { usePrefs } from '@/lib/settings';
@@ -261,6 +262,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               </View>
             ) : (
               <MealBody
+                hallId={hallId}
                 meal={meal}
                 hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
                 openStations={openStations}
@@ -276,26 +278,35 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 }
 
 function MealBody({
+  hallId,
   meal,
   hasGlutenFree,
   openStations,
   setOpenStations,
 }: {
+  hallId: HallId;
   meal: Meal;
   hasGlutenFree: boolean;
   openStations: number[];
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
+  const allergenFilterOn = prefs.avoidedAllergens.length > 0;
+  const canFilterAllergens = allergenFilterOn && hallPublishesAllergens(hallId);
   const glutenFreeOnly = prefs.glutenFreeOnly && hasGlutenFree;
   const filtersActive =
-    prefs.veganOnly || prefs.vegetarianOnly || glutenFreeOnly || prefs.plantBasedOnly;
+    prefs.veganOnly ||
+    prefs.vegetarianOnly ||
+    glutenFreeOnly ||
+    prefs.plantBasedOnly ||
+    canFilterAllergens;
   const isMatch = (it: MenuItem) =>
     matchesDiet(it, {
       veganOnly: prefs.veganOnly,
       vegetarianOnly: prefs.vegetarianOnly,
       glutenFreeOnly,
       plantBasedOnly: prefs.plantBasedOnly,
+      avoidedAllergens: canFilterAllergens ? prefs.avoidedAllergens : [],
     });
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
@@ -327,6 +338,9 @@ function MealBody({
       </View>
       {prefs.glutenFreeOnly && !glutenFreeOnly ? (
         <Text style={styles.filterNote}>No gluten-free labels for this hall.</Text>
+      ) : null}
+      {allergenFilterOn && !hallPublishesAllergens(hallId) ? (
+        <Text style={styles.filterNote}>No allergen list for this hall.</Text>
       ) : null}
       {meal.stations.map((st, si) => {
         const sOpen = openStations.includes(si);

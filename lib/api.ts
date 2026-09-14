@@ -1,4 +1,5 @@
 import type { HallId } from './diningHalls';
+import type { Allergen } from './allergens';
 
 const BASE = 'https://five-c-menu-api.kainoanewton.workers.dev';
 
@@ -10,6 +11,7 @@ export interface MenuItem {
   glutenFree?: boolean;
   plantBased?: boolean;
   calories?: number;
+  allergens?: Allergen[];
 }
 
 export interface Station {
@@ -176,18 +178,24 @@ export interface DietPrefs {
   vegetarianOnly: boolean;
   glutenFreeOnly: boolean;
   plantBasedOnly: boolean;
+  avoidedAllergens: Allergen[];
 }
 
 /**
  * Highlight (not hide) semantics: an item is "matching" when it satisfies
  * every enabled restriction. Non-matching items are grayed out but stay visible.
  * Plant-based also matches vegan dishes, because Bon Appétit halls omit `plantBased`.
+ * Allergen hits gray a dish out. Missing `allergens` is treated as none listed.
  */
 export function matchesDiet(item: MenuItem, prefs: DietPrefs): boolean {
   if (prefs.veganOnly && !item.vegan) return false;
   if (prefs.vegetarianOnly && !(item.vegetarian || item.vegan)) return false;
   if (prefs.glutenFreeOnly && !isGlutenFree(item)) return false;
   if (prefs.plantBasedOnly && !(item.plantBased || item.vegan)) return false;
+  if (prefs.avoidedAllergens.length > 0) {
+    const listed = item.allergens;
+    if (listed?.some((a) => prefs.avoidedAllergens.includes(a))) return false;
+  }
   return true;
 }
 

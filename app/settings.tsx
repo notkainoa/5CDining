@@ -12,6 +12,7 @@ import {
   CHROME_INSET,
   CHROME_RADIUS,
 } from '@/components/HallChrome';
+import { ALLERGEN_LABELS, ALLERGENS } from '@/lib/allergens';
 import { orderedHalls } from '@/lib/diningHalls';
 import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { Theme } from '@/constants/Theme';
@@ -189,6 +190,45 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.card}>
+            <Text style={styles.section}>Allergens to avoid</Text>
+            <Text style={styles.hint}>
+              Dishes listing these stay visible but gray out. Collins, Malott, and McConnell do not
+              publish allergen lists.
+            </Text>
+            <View style={styles.chips}>
+              {ALLERGENS.map((allergen) => {
+                const on = prefs.avoidedAllergens.includes(allergen);
+                return (
+                  <Pressable
+                    key={allergen}
+                    onPress={() => {
+                      if (!prefs.loaded) return;
+                      const avoidedAllergens = on
+                        ? prefs.avoidedAllergens.filter((a) => a !== allergen)
+                        : [...prefs.avoidedAllergens, allergen];
+                      prefs.update({ avoidedAllergens });
+                    }}
+                    disabled={!prefs.loaded}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on, disabled: !prefs.loaded }}
+                    accessibilityLabel={ALLERGEN_LABELS[allergen]}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      on && styles.chipOn,
+                      pressed && styles.chipPressed,
+                      !prefs.loaded && styles.rowDisabled,
+                    ]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                      {ALLERGEN_LABELS[allergen]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.card}>
             <Text style={styles.section}>Menu display</Text>
             <Row
               label="Show calories"
@@ -343,6 +383,22 @@ const styles = StyleSheet.create({
   rowLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowLabel: { fontSize: 15, fontWeight: '600', color: Theme.black },
   rowHint: { fontSize: 12, color: Theme.foodItem },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4 },
+  chip: {
+    backgroundColor: Theme.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.14)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipOn: {
+    backgroundColor: Theme.black,
+    borderColor: Theme.black,
+  },
+  chipPressed: { transform: [{ scale: 0.97 }] },
+  chipText: { fontSize: 13, fontWeight: '600', color: Theme.black },
+  chipTextOn: { color: Theme.white },
   switch: {
     width: 50,
     height: 30,
