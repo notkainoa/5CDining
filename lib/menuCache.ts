@@ -36,6 +36,4 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
 /** Drop cached menus so a new Claremont day does not reuse yesterday's "tomorrow" fetch. */
 export function invalidateMenuCache(): void {
   cache.clear();
-  requestGen.clear();
-  cachedGen.clear();
 }
