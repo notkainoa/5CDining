@@ -170,10 +170,19 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               accessibilityRole="button"
               accessibilityLabel={`${shortMealName(meal?.name ?? 'Meal')}, choose meal`}
             >
-              <Text style={[styles.mealPillName, { color: hall.onColor }]}>
+              <Text
+                style={[
+                  styles.mealPillName,
+                  { color: picker === 'meal' ? Theme.white : hall.onColor },
+                ]}
+              >
                 {shortMealName(meal?.name ?? '')}
               </Text>
-              <Text style={[styles.mealChev, { color: hall.onColor }]}>▾</Text>
+              <Text
+                style={[styles.mealChev, { color: picker === 'meal' ? Theme.white : hall.onColor }]}
+              >
+                ▾
+              </Text>
             </Pressable>
           ) : null}
           {hours ? (

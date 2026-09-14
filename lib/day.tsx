@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
-import { nowMinutesInLA, weekDates } from './dates';
+import { nowMinutesInLA, sameDay, weekDates } from './dates';
 
 interface DayCtx {
   days: Date[];
@@ -31,12 +31,14 @@ export function normalizeMealName(name: string): string {
 
 /** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
-  const days = useMemo(() => weekDates(), []);
+  const [days, setDays] = useState(() => weekDates());
   const [selected, setSelected] = useState(0);
   const [mealName, setMealName] = useState<string | null>(null);
   const [nowMinutes, setNowMinutes] = useState(nowMinutesInLA);
   const selectedRef = useRef(selected);
+  const daysRef = useRef(days);
   selectedRef.current = selected;
+  daysRef.current = days;
 
   useEffect(() => {
     let leftForBackground = false;
@@ -47,9 +49,19 @@ export function DayProvider({ children }: { children: ReactNode }) {
       }
       if (next !== 'active' || !leftForBackground) return;
       leftForBackground = false;
+      const nextDays = weekDates();
+      const prevDays = daysRef.current;
+      let nextSelected = selectedRef.current;
+      if (!sameDay(nextDays[0], prevDays[0])) {
+        const prevDate = prevDays[nextSelected];
+        const kept = prevDate ? nextDays.findIndex((d) => sameDay(d, prevDate)) : 0;
+        nextSelected = kept >= 0 ? kept : 0;
+        setDays(nextDays);
+        setSelected(nextSelected);
+      }
       setNowMinutes(nowMinutesInLA());
       // Opening the app on today always shows the live meal, not the last pick.
-      if (selectedRef.current === 0) setMealName(null);
+      if (nextSelected === 0) setMealName(null);
     });
     return () => sub.remove();
   }, []);
