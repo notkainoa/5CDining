@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { DINING_HALLS, type HallId } from './diningHalls';
+import { sanitizeAllergens, type Allergen } from './allergens';
 
 /**
  * Search page, dish hearts, and the Settings rows for both.
@@ -15,6 +16,8 @@ export interface Prefs {
   vegetarianOnly: boolean;
   glutenFreeOnly: boolean;
   plantBasedOnly: boolean;
+  /** Allergens the user wants grayed out when a hall lists them. */
+  avoidedAllergens: Allergen[];
   showCalories: boolean;
   showDescriptions: boolean;
   searchEnabled: boolean;
@@ -33,6 +36,7 @@ const DEFAULTS: Prefs = {
   vegetarianOnly: false,
   glutenFreeOnly: false,
   plantBasedOnly: false,
+  avoidedAllergens: [],
   showCalories: false,
   showDescriptions: true,
   searchEnabled: false,
@@ -100,6 +104,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
               favorites: Array.isArray(parsed.favorites)
                 ? parsed.favorites.filter((f: unknown) => typeof f === 'string')
                 : [],
+              avoidedAllergens: sanitizeAllergens(parsed.avoidedAllergens),
             });
           } catch {
             // corrupted prefs -> keep defaults
