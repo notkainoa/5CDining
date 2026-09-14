@@ -29,9 +29,9 @@ export const ALLERGEN_LABELS: Record<Allergen, string> = {
   wheat: 'Wheat',
 };
 
-const PUBLISHING_HALLS: ReadonlySet<HallId> = new Set(['hoch', 'frary', 'frank', 'oldenborg']);
+const PUBLISHING_HALLS: ReadonlySet<HallId> = new Set(['hoch', 'frary', 'frank']);
 
-/** Hoch and Pomona publish `item.allergens`. Bon Appétit halls omit the field entirely. */
+/** Hoch, Frary, and Frank publish `item.allergens`. Bon Appétit halls omit the field. */
 export function hallPublishesAllergens(hallId: HallId): boolean {
   return PUBLISHING_HALLS.has(hallId);
 }
