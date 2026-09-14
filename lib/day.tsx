@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { AppState } from 'react-native';
 import type { Meal } from './api';
 import { nowMinutesInLA, sameDay, weekDates } from './dates';
+import { invalidateMenuCache } from './menuCache';
 
 interface DayCtx {
   days: Date[];
@@ -46,10 +47,30 @@ export function DayProvider({ children }: { children: ReactNode }) {
   const [nowMinutes, setNowMinutes] = useState(nowMinutesInLA);
   const selectedRef = useRef(selected);
   const daysRef = useRef(days);
-  selectedRef.current = selected;
-  daysRef.current = days;
 
   useEffect(() => {
+    selectedRef.current = selected;
+    daysRef.current = days;
+  }, [selected, days]);
+
+  useEffect(() => {
+    const syncWindow = (opts: { fromResume: boolean }) => {
+      const nextDays = weekDates();
+      const prevDays = daysRef.current;
+      let nextSelected = selectedRef.current;
+      if (!sameDay(nextDays[0], prevDays[0])) {
+        invalidateMenuCache();
+        const prevDate = prevDays[nextSelected];
+        const kept = prevDate ? nextDays.findIndex((d) => sameDay(d, prevDate)) : 0;
+        nextSelected = kept >= 0 ? kept : 0;
+        setDays(nextDays);
+        setSelected(nextSelected);
+        if (nextSelected === 0) setMealName(null);
+      }
+      setNowMinutes(nowMinutesInLA());
+      if (opts.fromResume && nextSelected === 0) setMealName(null);
+    };
+
     let leftForBackground = false;
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'background') {
@@ -58,21 +79,13 @@ export function DayProvider({ children }: { children: ReactNode }) {
       }
       if (next !== 'active' || !leftForBackground) return;
       leftForBackground = false;
-      const nextDays = weekDates();
-      const prevDays = daysRef.current;
-      let nextSelected = selectedRef.current;
-      if (!sameDay(nextDays[0], prevDays[0])) {
-        const prevDate = prevDays[nextSelected];
-        const kept = prevDate ? nextDays.findIndex((d) => sameDay(d, prevDate)) : 0;
-        nextSelected = kept >= 0 ? kept : 0;
-        setDays(nextDays);
-        setSelected(nextSelected);
-      }
-      setNowMinutes(nowMinutesInLA());
-      // Opening the app on today always shows the live meal, not the last pick.
-      if (nextSelected === 0) setMealName(null);
+      syncWindow({ fromResume: true });
     });
-    return () => sub.remove();
+    const tick = setInterval(() => syncWindow({ fromResume: false }), 60_000);
+    return () => {
+      sub.remove();
+      clearInterval(tick);
+    };
   }, []);
 
   const value = useMemo<DayCtx>(

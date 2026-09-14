@@ -10,8 +10,8 @@ export const Theme = {
   mealItem: 'rgba(30, 30, 30, 0.8)',
   foodItem: 'rgba(0, 0, 0, 0.7)',
   foodMuted: 'rgba(0, 0, 0, 0.55)',
-  vegan: '#2f9e44',
-  vegetarian: '#f08c00',
+  vegan: '#1f7a3d',
+  vegetarian: '#c2410c',
   glutenFree: '#364fc7',
   plantBased: '#087f5b',
 } as const;

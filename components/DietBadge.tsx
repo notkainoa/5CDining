@@ -11,8 +11,14 @@ const DIET = {
 export default function DietBadge({ kind }: { kind: keyof typeof DIET }) {
   const d = DIET[kind];
   return (
-    <View style={[styles.badge, { backgroundColor: d.bg }]} accessibilityLabel={d.label}>
-      <Text style={styles.badgeText}>{d.text}</Text>
+    <View
+      style={[styles.badge, { backgroundColor: d.bg }]}
+      accessible
+      accessibilityLabel={d.label}
+    >
+      <Text style={styles.badgeText} importantForAccessibility="no" accessibilityElementsHidden>
+        {d.text}
+      </Text>
     </View>
   );
 }

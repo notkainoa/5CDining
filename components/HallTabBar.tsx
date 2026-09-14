@@ -50,15 +50,9 @@ const DETACH_W = 1;
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
 
-const HALL_COLOR: Record<string, string> = {
-  mcconnell: '#fd7e14',
-  frary: '#228be6',
-  hoch: '#fab005',
-  malott: '#40c057',
-  collins: '#e03131',
-  frank: '#228be6',
-  oldenborg: '#228be6',
-};
+const HALL_COLOR: Record<string, string> = Object.fromEntries(
+  Object.entries(HALL_BY_ID).map(([id, hall]) => [id, hall.color]),
+);
 
 /** Same critically damped spring on both edges so width never balloons past the chips. */
 const MOVE_SPRING = { duration: 380, dampingRatio: 1 };

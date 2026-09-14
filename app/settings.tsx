@@ -113,7 +113,6 @@ export default function SettingsScreen() {
               first one.
             </Text>
             <HallOrderList
-              key={prefs.loaded ? 'ready' : 'loading'}
               order={orderedHalls(prefs.hallOrder).map((h) => h.id)}
               onChange={(hallOrder) => {
                 if (prefs.loaded) prefs.update({ hallOrder });

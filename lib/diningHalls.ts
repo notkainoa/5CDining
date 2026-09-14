@@ -37,7 +37,7 @@ export const DINING_HALLS: DiningHall[] = [
     logoOnWhite: true,
     badge: 'PZ',
     color: '#fd7e14',
-    onColor: '#FFFFFF',
+    onColor: '#000000',
     sourceUrl: 'https://pitzer.cafebonappetit.com/',
   },
   {
