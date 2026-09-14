@@ -11,7 +11,7 @@ import {
 import {
   isGlutenFree,
   matchesDiet,
-  mealHasFlag,
+  menusHaveFlag,
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
@@ -260,7 +260,12 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                 </Pressable>
               </View>
             ) : (
-              <MealBody meal={meal} openStations={openStations} setOpenStations={setOpenStations} />
+              <MealBody
+                meal={meal}
+                hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
+                openStations={openStations}
+                setOpenStations={setOpenStations}
+              />
             )}
             <View style={{ height: 16 }} />
           </ScrollView>
@@ -272,15 +277,17 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
 function MealBody({
   meal,
+  hasGlutenFree,
   openStations,
   setOpenStations,
 }: {
   meal: Meal;
+  hasGlutenFree: boolean;
   openStations: number[];
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
-  const glutenFreeOnly = prefs.glutenFreeOnly && mealHasFlag(meal, 'glutenFree');
+  const glutenFreeOnly = prefs.glutenFreeOnly && hasGlutenFree;
   const filtersActive =
     prefs.veganOnly || prefs.vegetarianOnly || glutenFreeOnly || prefs.plantBasedOnly;
   const isMatch = (it: MenuItem) =>
