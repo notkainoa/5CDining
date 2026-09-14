@@ -170,6 +170,22 @@ export default function SettingsScreen() {
               disabled={!prefs.loaded}
               onToggle={() => prefs.update({ vegetarianOnly: !prefs.vegetarianOnly })}
             />
+            <Row
+              label="Gluten-free"
+              badge="glutenFree"
+              hint="Only dishes the hall marked gluten-free."
+              value={prefs.glutenFreeOnly}
+              disabled={!prefs.loaded}
+              onToggle={() => prefs.update({ glutenFreeOnly: !prefs.glutenFreeOnly })}
+            />
+            <Row
+              label="Plant-based"
+              badge="plantBased"
+              hint="Plant-based dishes, plus vegan ones at halls that omit that label."
+              value={prefs.plantBasedOnly}
+              disabled={!prefs.loaded}
+              onToggle={() => prefs.update({ plantBasedOnly: !prefs.plantBasedOnly })}
+            />
           </View>
 
           <View style={styles.card}>
@@ -226,7 +242,7 @@ function Row({
   disabled,
 }: {
   label: string;
-  badge?: 'vegan' | 'vegetarian';
+  badge?: 'vegan' | 'vegetarian' | 'glutenFree' | 'plantBased';
   hint: string;
   value: boolean;
   onToggle: () => void;

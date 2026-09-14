@@ -13,6 +13,8 @@ export interface Prefs {
   hallOrder: HallId[];
   veganOnly: boolean;
   vegetarianOnly: boolean;
+  glutenFreeOnly: boolean;
+  plantBasedOnly: boolean;
   showCalories: boolean;
   showDescriptions: boolean;
   searchEnabled: boolean;
@@ -29,6 +31,8 @@ const DEFAULTS: Prefs = {
   hallOrder: DEFAULT_ORDER,
   veganOnly: false,
   vegetarianOnly: false,
+  glutenFreeOnly: false,
+  plantBasedOnly: false,
   showCalories: false,
   showDescriptions: true,
   searchEnabled: false,

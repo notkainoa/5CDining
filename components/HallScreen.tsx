@@ -279,7 +279,8 @@ function MealBody({
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
-  const filtersActive = prefs.veganOnly || prefs.vegetarianOnly;
+  const filtersActive =
+    prefs.veganOnly || prefs.vegetarianOnly || prefs.glutenFreeOnly || prefs.plantBasedOnly;
   const isMatch = (it: MenuItem) => matchesDiet(it, prefs);
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
@@ -364,7 +365,8 @@ function DietLabels({ item, showCalories }: { item: MenuItem; showCalories: bool
       ) : item.vegetarian ? (
         <DietBadge kind="vegetarian" />
       ) : null}
-      {isGlutenFree(item) ? <Text style={styles.label}>GF</Text> : null}
+      {isGlutenFree(item) ? <DietBadge kind="glutenFree" /> : null}
+      {item.plantBased && !item.vegan ? <DietBadge kind="plantBased" /> : null}
       {showCalories && typeof item.calories === 'number' ? (
         <Text style={styles.label}>{item.calories} cal</Text>
       ) : null}
