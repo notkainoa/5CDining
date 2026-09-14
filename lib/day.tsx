@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
+import type { Meal } from './api';
 import { nowMinutesInLA, sameDay, weekDates } from './dates';
 
 interface DayCtx {
@@ -7,7 +8,7 @@ interface DayCtx {
   selected: number;
   date: Date;
   selectDate: (i: number) => void;
-  /** Normalized name of the manually picked meal (e.g. "lunch"), or null if none yet. */
+  /** Shared meal slot across halls: API `period` when present, else the normalized school name. */
   mealName: string | null;
   selectMealName: (name: string) => void;
   /** Claremont minutes after midnight. Refreshed when the app is opened. */
@@ -27,6 +28,14 @@ const DayContext = createContext<DayCtx>({
 /** Meal identity across halls: case/whitespace-insensitive name. */
 export function normalizeMealName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Identity used when the user picks a meal, so Hoch `DINNER` and Collins `Dinner`
+ * stay aligned, and `Continental Breakfast` counts as breakfast.
+ */
+export function mealKey(meal: Meal): string {
+  return meal.period ?? normalizeMealName(meal.name);
 }
 
 /** Shared selected day across all hall pages. */

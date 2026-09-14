@@ -15,8 +15,12 @@ export interface Station {
   items: MenuItem[];
 }
 
+/** Normalized meal slot from the API. Omitted when the school name matches none of these. */
+export type MealPeriod = 'breakfast' | 'brunch' | 'lunch' | 'dinner' | 'late_night';
+
 export interface Meal {
   name: string;
+  period?: MealPeriod;
   stations: Station[];
   startTime?: string;
   endTime?: string;
