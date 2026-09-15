@@ -6,8 +6,7 @@ import 'react-native-reanimated';
 
 import WebStackHost from '@/components/WebStackHost';
 import { Theme } from '@/constants/Theme';
-import { useKeepRootUrl } from '@/lib/keepRootUrl';
-import { SettingsProvider, usePrefs } from '@/lib/settings';
+import { SettingsProvider } from '@/lib/settings';
 import { WebStackProvider } from '@/lib/webStack';
 
 export {
@@ -58,7 +57,6 @@ function RootLayoutNav() {
   return (
     <SettingsProvider>
       <WebStackProvider>
-        <RoutePin />
         <ThemeProvider value={NAV_THEME}>
           <Stack screenOptions={{ contentStyle: { backgroundColor: Theme.black } }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -91,8 +89,3 @@ function RootLayoutNav() {
   );
 }
 
-function RoutePin() {
-  const { loaded, hideRoutes } = usePrefs();
-  useKeepRootUrl(loaded && hideRoutes);
-  return null;
-}

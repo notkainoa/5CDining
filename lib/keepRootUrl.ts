@@ -7,25 +7,27 @@ function normalizedPath(): string {
 }
 
 /**
- * When “disable page URLs” is on, pin the address bar to `/`. Leave `/no-routes`
- * alone so that page can turn the setting on, then redirect home.
+ * Pin the web address bar to `target` while it is set. Any in-app
+ * `pushState`/`replaceState` (including expo-router's own) is rewritten back
+ * to the target. Browser Back/Forward is intentionally left alone: Back means
+ * leave the page. Pass `null` to disable.
  */
-export function useKeepRootUrl(enabled: boolean) {
-  const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
+export function usePinUrlPath(target: string | null) {
+  const targetRef = useRef(target);
+  targetRef.current = target;
 
   useEffect(() => {
-    if (!enabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (target == null || Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const { history } = window;
     const push = history.pushState.bind(history);
     const replace = history.replaceState.bind(history);
 
     const pin = () => {
-      if (!enabledRef.current) return;
-      if (normalizedPath() === '/no-routes') return;
-      if (normalizedPath() === '/' && !window.location.search && !window.location.hash) return;
-      replace(history.state, '', '/');
+      const want = targetRef.current;
+      if (want == null) return;
+      if (normalizedPath() === want && !window.location.search && !window.location.hash) return;
+      replace(history.state, '', want);
     };
 
     history.pushState = (data, unused, url) => {
@@ -36,13 +38,11 @@ export function useKeepRootUrl(enabled: boolean) {
       replace(data, unused, url);
       pin();
     };
-    window.addEventListener('popstate', pin);
     pin();
 
     return () => {
       history.pushState = push;
       history.replaceState = replace;
-      window.removeEventListener('popstate', pin);
     };
-  }, [enabled]);
+  }, [target]);
 }

@@ -12,11 +12,6 @@ export const SEARCH_FEATURES = false;
 export interface Prefs {
   /** Left-to-right dining hall order. First hall is the launch page. */
   hallOrder: HallId[];
-  /**
-   * Web: keep the address bar on `/` and skip hall/settings routes.
-   * Off by default. `/no-routes` turns this on.
-   */
-  hideRoutes: boolean;
   veganOnly: boolean;
   vegetarianOnly: boolean;
   glutenFreeOnly: boolean;
@@ -37,7 +32,6 @@ const DEFAULT_ORDER: HallId[] = DINING_HALLS.map((h) => h.id);
 
 const DEFAULTS: Prefs = {
   hallOrder: DEFAULT_ORDER,
-  hideRoutes: false,
   veganOnly: false,
   vegetarianOnly: false,
   glutenFreeOnly: false,
@@ -106,7 +100,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             setPrefs({
               ...DEFAULTS,
               ...parsed,
-              hideRoutes: parsed.hideRoutes === true,
               hallOrder: sanitizeOrder(parsed.hallOrder),
               favorites: Array.isArray(parsed.favorites)
                 ? parsed.favorites.filter((f: unknown) => typeof f === 'string')

@@ -59,16 +59,6 @@ export default function SettingsScreen() {
     return () => clearInterval(t);
   }, [edgeDir]);
 
-  const hideRoutesOn = useRef(prefs.hideRoutes);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    if (hideRoutesOn.current && !prefs.hideRoutes) {
-      router.replace('/settings');
-    }
-    hideRoutesOn.current = prefs.hideRoutes;
-  }, [prefs.hideRoutes, router]);
-
   const goBack = () => {
     if (Platform.OS === 'web' && webStack.screen) {
       webStack.close();
@@ -260,24 +250,6 @@ export default function SettingsScreen() {
               <Text style={styles.link}>five-c-menu-api.kainoanewton.workers.dev</Text>
             </Pressable>
           </View>
-
-          {Platform.OS === 'web' ? (
-            <View style={[styles.card, styles.dangerCard]}>
-              <Text style={[styles.section, styles.dangerSection]}>Danger zone</Text>
-              <Row
-                label="Disable page URLs"
-                hint="Keeps the address bar on the site root while you switch halls or open settings. You can also turn this on by visiting /no-routes."
-                value={prefs.hideRoutes}
-                disabled={!prefs.loaded}
-                danger
-                onToggle={() => {
-                  const next = !prefs.hideRoutes;
-                  if (!next) webStack.close();
-                  prefs.update({ hideRoutes: next });
-                }}
-              />
-            </View>
-          ) : null}
         </ScrollView>
       </View>
     </View>
@@ -325,14 +297,12 @@ function Row({
   value,
   onToggle,
   disabled,
-  danger,
 }: {
   label: string;
   hint: string;
   value: boolean;
   onToggle: () => void;
   disabled?: boolean;
-  danger?: boolean;
 }) {
   return (
     <Pressable
@@ -343,15 +313,10 @@ function Row({
       style={[styles.row, disabled && styles.rowDisabled]}
     >
       <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, danger && styles.dangerLabel]}>{label}</Text>
+        <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowHint}>{hint}</Text>
       </View>
-      <View
-        style={[
-          styles.switch,
-          { backgroundColor: value ? (danger ? '#c92a2a' : Theme.vegan) : Theme.gray },
-        ]}
-      >
+      <View style={[styles.switch, { backgroundColor: value ? Theme.vegan : Theme.gray }]}>
         <View style={[styles.knob, { alignSelf: value ? 'flex-end' : 'flex-start' }]} />
       </View>
     </Pressable>
@@ -409,18 +374,10 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
-  dangerCard: {
-    backgroundColor: '#fff5f5',
-    borderWidth: 1,
-    borderColor: 'rgba(201, 42, 42, 0.25)',
-  },
   section: {
     fontSize: 17,
     fontWeight: '700',
     color: Theme.black,
-  },
-  dangerSection: {
-    color: '#c92a2a',
   },
   hint: {
     fontSize: 13,
@@ -443,7 +400,6 @@ const styles = StyleSheet.create({
   rowDisabled: { opacity: 0.4 },
   rowText: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 15, fontWeight: '600', color: Theme.black },
-  dangerLabel: { color: '#c92a2a' },
   rowHint: { fontSize: 12, color: Theme.foodItem },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4 },
   chip: {

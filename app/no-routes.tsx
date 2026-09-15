@@ -1,33 +1,18 @@
 import { Redirect } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
-import { usePrefs } from '@/lib/settings';
+import { Platform } from 'react-native';
+import FrozenHalls from '@/components/FrozenHalls';
+import { usePinUrlPath } from '@/lib/keepRootUrl';
 
 /**
- * Turn on “disable page URLs” (no-op if it is already on), then go to `/`.
+ * `/no-routes`: the same halls without page URLs. Hall switches and
+ * settings/search open in memory, so the address bar stays on `/no-routes`.
+ * The normal app at `/` is untouched. Native has no URLs, so it renders the
+ * normal app instead.
  */
 export default function NoRoutes() {
-  const { loaded, hideRoutes, update } = usePrefs();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    if (!loaded) return;
-    // Web-only setting: a native deep link here must not mutate it.
-    if (Platform.OS === 'web' && !hideRoutes) update({ hideRoutes: true });
-    setReady(true);
-  }, [hideRoutes, loaded, update]);
-
-  if (!loaded || !ready) {
-    return (
-      <View style={styles.splash}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+  usePinUrlPath(Platform.OS === 'web' ? '/no-routes' : null);
+  if (Platform.OS !== 'web') {
+    return <Redirect href="/" />;
   }
-
-  return <Redirect href="/" />;
+  return <FrozenHalls />;
 }
-
-const styles = StyleSheet.create({
-  splash: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
