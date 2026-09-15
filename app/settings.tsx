@@ -12,12 +12,19 @@ import {
   CHROME_INSET,
   CHROME_RADIUS,
 } from '@/components/HallChrome';
-import { ALLERGEN_LABELS, ALLERGENS } from '@/lib/allergens';
+import { ALLERGEN_LABELS, ALLERGENS, impliedAllergens } from '@/lib/allergens';
 import { orderedHalls } from '@/lib/diningHalls';
 import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { Theme } from '@/constants/Theme';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
+
+const DIET_FILTERS = [
+  { key: 'veganOnly', label: 'Vegan', badge: 'vegan' },
+  { key: 'vegetarianOnly', label: 'Vegetarian', badge: 'vegetarian' },
+  { key: 'glutenFreeOnly', label: 'Gluten-free', badge: 'glutenFree' },
+  { key: 'plantBasedOnly', label: 'Plant-based', badge: 'plantBased' },
+] as const;
 
 export default function SettingsScreen() {
   const prefs = usePrefs();
@@ -54,6 +61,8 @@ export default function SettingsScreen() {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   };
+
+  const lockedAllergens = impliedAllergens(prefs);
 
   return (
     <View
@@ -154,74 +163,43 @@ export default function SettingsScreen() {
             <Text style={styles.hint}>
               Matching dishes stay bright — everything else grays out but stays visible.
             </Text>
-            <Row
-              label="Vegan"
-              badge="vegan"
-              hint="Highlights vegan dishes."
-              value={prefs.veganOnly}
-              disabled={!prefs.loaded}
-              onToggle={() => prefs.update({ veganOnly: !prefs.veganOnly })}
-            />
-            <Row
-              label="Vegetarian"
-              badge="vegetarian"
-              hint="Highlights vegetarian (and vegan) dishes."
-              value={prefs.vegetarianOnly}
-              disabled={!prefs.loaded}
-              onToggle={() => prefs.update({ vegetarianOnly: !prefs.vegetarianOnly })}
-            />
-            <Row
-              label="Gluten-free"
-              badge="glutenFree"
-              hint="Only dishes the hall marked gluten-free."
-              value={prefs.glutenFreeOnly}
-              disabled={!prefs.loaded}
-              onToggle={() => prefs.update({ glutenFreeOnly: !prefs.glutenFreeOnly })}
-            />
-            <Row
-              label="Plant-based"
-              badge="plantBased"
-              hint="Plant-based dishes, plus vegan ones at halls that omit that label."
-              value={prefs.plantBasedOnly}
-              disabled={!prefs.loaded}
-              onToggle={() => prefs.update({ plantBasedOnly: !prefs.plantBasedOnly })}
-            />
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.section}>Allergens to avoid</Text>
+            <Text style={styles.subSection}>Highlight dishes that are</Text>
+            <View style={styles.chips}>
+              {DIET_FILTERS.map((filter) => (
+                <FilterChip
+                  key={filter.key}
+                  label={filter.label}
+                  badge={filter.badge}
+                  on={prefs[filter.key]}
+                  disabled={!prefs.loaded}
+                  onToggle={() => prefs.update({ [filter.key]: !prefs[filter.key] })}
+                />
+              ))}
+            </View>
+            <Text style={styles.subSection}>Hide dishes with these ingredients</Text>
             <Text style={styles.hint}>
-              Dishes listing these stay visible but gray out. Collins, Malott, and McConnell do not
-              publish allergen lists.
+              Highlights above lock matching ingredients on. Collins, Malott, and McConnell do not
+              publish ingredient lists.
             </Text>
             <View style={styles.chips}>
               {ALLERGENS.map((allergen) => {
-                const on = prefs.avoidedAllergens.includes(allergen);
+                const locked = lockedAllergens.includes(allergen);
+                const on = locked || prefs.avoidedAllergens.includes(allergen);
                 return (
-                  <Pressable
+                  <FilterChip
                     key={allergen}
-                    onPress={() => {
-                      if (!prefs.loaded) return;
-                      const avoidedAllergens = on
+                    label={ALLERGEN_LABELS[allergen]}
+                    on={on}
+                    locked={locked}
+                    disabled={!prefs.loaded}
+                    onToggle={() => {
+                      if (locked) return;
+                      const avoidedAllergens = prefs.avoidedAllergens.includes(allergen)
                         ? prefs.avoidedAllergens.filter((a) => a !== allergen)
                         : [...prefs.avoidedAllergens, allergen];
                       prefs.update({ avoidedAllergens });
                     }}
-                    disabled={!prefs.loaded}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on, disabled: !prefs.loaded }}
-                    accessibilityLabel={ALLERGEN_LABELS[allergen]}
-                    style={({ pressed }) => [
-                      styles.chip,
-                      on && styles.chipOn,
-                      pressed && styles.chipPressed,
-                      !prefs.loaded && styles.rowDisabled,
-                    ]}
-                  >
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>
-                      {ALLERGEN_LABELS[allergen]}
-                    </Text>
-                  </Pressable>
+                  />
                 );
               })}
             </View>
@@ -272,16 +250,49 @@ export default function SettingsScreen() {
   );
 }
 
-function Row({
+function FilterChip({
   label,
   badge,
+  on,
+  locked,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  badge?: 'vegan' | 'vegetarian' | 'glutenFree' | 'plantBased';
+  on: boolean;
+  locked?: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      disabled={disabled || locked}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on, disabled: disabled || locked }}
+      accessibilityLabel={locked ? `${label}, required by a highlight` : label}
+      style={({ pressed }) => [
+        styles.chip,
+        on && styles.chipOn,
+        pressed && !locked && styles.chipPressed,
+        disabled && styles.rowDisabled,
+      ]}
+    >
+      {badge ? <DietBadge kind={badge} /> : null}
+      <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Row({
+  label,
   hint,
   value,
   onToggle,
   disabled,
 }: {
   label: string;
-  badge?: 'vegan' | 'vegetarian' | 'glutenFree' | 'plantBased';
   hint: string;
   value: boolean;
   onToggle: () => void;
@@ -296,10 +307,7 @@ function Row({
       style={[styles.row, disabled && styles.rowDisabled]}
     >
       <View style={styles.rowText}>
-        <View style={styles.rowLabelRow}>
-          <Text style={styles.rowLabel}>{label}</Text>
-          {badge ? <DietBadge kind={badge} /> : null}
-        </View>
+        <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowHint}>{hint}</Text>
       </View>
       <View style={[styles.switch, { backgroundColor: value ? Theme.vegan : Theme.gray }]}>
@@ -369,6 +377,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Theme.foodItem,
   },
+  subSection: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Theme.black,
+    marginTop: 4,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -379,11 +393,13 @@ const styles = StyleSheet.create({
   },
   rowDisabled: { opacity: 0.4 },
   rowText: { flex: 1, gap: 2 },
-  rowLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowLabel: { fontSize: 15, fontWeight: '600', color: Theme.black },
   rowHint: { fontSize: 12, color: Theme.foodItem },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: Theme.white,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.14)',

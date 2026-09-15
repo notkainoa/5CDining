@@ -48,3 +48,35 @@ export function sanitizeAllergens(value: unknown): Allergen[] {
   }
   return out;
 }
+
+export interface DietHighlightPrefs {
+  veganOnly: boolean;
+  vegetarianOnly: boolean;
+  glutenFreeOnly: boolean;
+  plantBasedOnly: boolean;
+}
+
+/** Allergens a highlight forces on. Users cannot turn these off while that highlight is on. */
+export const HIGHLIGHT_IMPLIED_ALLERGENS = {
+  veganOnly: ['egg', 'fish', 'milk', 'shellfish'],
+  vegetarianOnly: ['fish', 'shellfish'],
+  glutenFreeOnly: ['gluten', 'wheat'],
+  plantBasedOnly: ['egg', 'fish', 'milk', 'shellfish'],
+} as const satisfies Record<keyof DietHighlightPrefs, readonly Allergen[]>;
+
+export function impliedAllergens(prefs: DietHighlightPrefs): Allergen[] {
+  const out: Allergen[] = [];
+  for (const key of Object.keys(HIGHLIGHT_IMPLIED_ALLERGENS) as (keyof DietHighlightPrefs)[]) {
+    if (!prefs[key]) continue;
+    for (const allergen of HIGHLIGHT_IMPLIED_ALLERGENS[key]) {
+      if (!out.includes(allergen)) out.push(allergen);
+    }
+  }
+  return out;
+}
+
+export function effectiveAvoidedAllergens(
+  prefs: DietHighlightPrefs & { avoidedAllergens: readonly Allergen[] },
+): Allergen[] {
+  return sanitizeAllergens([...impliedAllergens(prefs), ...prefs.avoidedAllergens]);
+}
