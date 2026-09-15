@@ -35,7 +35,8 @@ const PAGES = {
  * UIPageViewController swipes). Swipes and taps never touch the router, so
  * there is no sync loop and no second animation. The route only matters at
  * launch / deep links, which snap the pager without animation.
- * Web uses _layout.web.tsx (expo-router Tabs, no swipe).
+ * Web uses _layout.web.tsx (expo-router Tabs, or an in-memory pager when
+ * “disable page URLs” is on).
  */
 function TabLayoutNative() {
   const segments = useSegments();

@@ -1,10 +1,10 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { usePrefs } from '@/lib/settings';
 
 /** Launch routing: first hall in the user's order. */
 export default function Index() {
-  const { loaded, hallOrder } = usePrefs();
+  const { loaded, hallOrder, hideRoutes } = usePrefs();
   if (!loaded) {
     return (
       <View style={styles.splash}>
@@ -12,6 +12,7 @@ export default function Index() {
       </View>
     );
   }
+  if (Platform.OS === 'web' && hideRoutes) return null;
   return <Redirect href={`/(tabs)/${hallOrder[0]}`} />;
 }
 

@@ -1,4 +1,10 @@
-import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
+import {
+  Children,
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  type ReactNode,
+} from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export interface NativePagerHandle {
@@ -21,36 +27,32 @@ interface Props {
 }
 
 /**
- * Web fallback so `react-native-pager-view` (native-only) never enters the
- * web bundle. Unused while _layout.web.tsx exists; renders all children so
- * the app still paints if that file is ever removed.
+ * Web stand-in for `react-native-pager-view`. No swipe — clicking a hall chip
+ * swaps the visible page in memory so the address bar can stay on `/`.
  */
 const NativePager = forwardRef<NativePagerHandle, Props>(function NativePager(
   { initialPage, onPageSelected, children },
   ref,
 ) {
-  const indexRef = useRef(initialPage);
+  const [index, setIndex] = useState(initialPage);
+  const pages = Children.toArray(children);
 
   useImperativeHandle(
     ref,
     () => ({
-      setPage: (index: number) => {
-        if (index !== indexRef.current) {
-          indexRef.current = index;
-          onPageSelected(index);
-        }
+      setPage: (next) => {
+        setIndex(next);
+        onPageSelected(next);
       },
-      setPageWithoutAnimation: (index: number) => {
-        if (index !== indexRef.current) {
-          indexRef.current = index;
-          onPageSelected(index);
-        }
+      setPageWithoutAnimation: (next) => {
+        setIndex(next);
+        onPageSelected(next);
       },
     }),
     [onPageSelected],
   );
 
-  return <View style={styles.fill}>{children}</View>;
+  return <View style={styles.fill}>{pages[index] ?? null}</View>;
 });
 
 export default NativePager;

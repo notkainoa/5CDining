@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { DINING_HALLS, type HallId } from './diningHalls';
 import { sanitizeAllergens, type Allergen } from './allergens';
 
@@ -12,6 +12,11 @@ export const SEARCH_FEATURES = false;
 export interface Prefs {
   /** Left-to-right dining hall order. First hall is the launch page. */
   hallOrder: HallId[];
+  /**
+   * Web: keep the address bar on `/` and skip hall/settings routes.
+   * Off by default. `/no-routes` turns this on.
+   */
+  hideRoutes: boolean;
   veganOnly: boolean;
   vegetarianOnly: boolean;
   glutenFreeOnly: boolean;
@@ -32,6 +37,7 @@ const DEFAULT_ORDER: HallId[] = DINING_HALLS.map((h) => h.id);
 
 const DEFAULTS: Prefs = {
   hallOrder: DEFAULT_ORDER,
+  hideRoutes: false,
   veganOnly: false,
   vegetarianOnly: false,
   glutenFreeOnly: false,
@@ -100,6 +106,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             setPrefs({
               ...DEFAULTS,
               ...parsed,
+              hideRoutes: parsed.hideRoutes === true,
               hallOrder: sanitizeOrder(parsed.hallOrder),
               favorites: Array.isArray(parsed.favorites)
                 ? parsed.favorites.filter((f: unknown) => typeof f === 'string')
@@ -114,13 +121,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoaded(true));
   }, []);
 
-  const update = (patch: Partial<Prefs>) => {
+  const update = useCallback((patch: Partial<Prefs>) => {
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
       AsyncStorage.setItem(KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
-  };
+  }, []);
 
   const isFavorite = (label: string) =>
     prefs.favorites.some((f) => favoriteId(f) === favoriteId(label));

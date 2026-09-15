@@ -5,8 +5,11 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import WebStackHost from '@/components/WebStackHost';
 import { Theme } from '@/constants/Theme';
-import { SettingsProvider } from '@/lib/settings';
+import { useKeepRootUrl } from '@/lib/keepRootUrl';
+import { SettingsProvider, usePrefs } from '@/lib/settings';
+import { WebStackProvider } from '@/lib/webStack';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -49,35 +52,47 @@ function RootLayoutNav() {
 
   return (
     <SettingsProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{
-              headerShown: false,
-              animation: 'default',
-              gestureEnabled: true,
-              fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: Theme.black },
-            }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{
-              headerShown: false,
-              animation: 'default',
-              gestureEnabled: true,
-              fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: Theme.black },
-            }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
+      <WebStackProvider>
+        <RoutePin />
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen
+              name="(tabs)"
+              options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
+            />
+            <Stack.Screen
+              name="search"
+              options={{
+                headerShown: false,
+                animation: 'default',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: true,
+                contentStyle: { backgroundColor: Theme.black },
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: false,
+                animation: 'default',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: true,
+                contentStyle: { backgroundColor: Theme.black },
+              }}
+            />
+            <Stack.Screen name="home" options={{ headerShown: false }} />
+            <Stack.Screen name="no-routes" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+          <WebStackHost />
+        </ThemeProvider>
+      </WebStackProvider>
     </SettingsProvider>
   );
+}
+
+function RoutePin() {
+  const { loaded, hideRoutes } = usePrefs();
+  useKeepRootUrl(loaded && hideRoutes);
+  return null;
 }

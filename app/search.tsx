@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +32,7 @@ import {
   type SearchHit,
 } from '@/lib/search';
 import { favoriteId, SEARCH_FEATURES, usePrefs } from '@/lib/settings';
+import { useWebStack } from '@/lib/webStack';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
 const SEARCH_SYMBOL = { ios: 'magnifyingglass', android: 'search', web: 'search' } as const;
@@ -47,6 +49,7 @@ export default function SearchScreen() {
 function SearchScreenInner() {
   const prefs = usePrefs();
   const router = useRouter();
+  const webStack = useWebStack();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState<SearchHit[] | null>(null);
@@ -67,14 +70,21 @@ function SearchScreenInner() {
     }
   }, [prefs.favorites]);
 
+  const maybeLoad = useCallback(() => {
+    const key = dayKey(todayInLA());
+    if (loadedDay.current === key) return;
+    loadedDay.current = key;
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    maybeLoad();
+  }, [maybeLoad]);
+
   useFocusEffect(
     useCallback(() => {
-      const key = dayKey(todayInLA());
-      if (index === null || loadedDay.current !== key) {
-        loadedDay.current = key;
-        load();
-      }
-    }, [index, load]),
+      maybeLoad();
+    }, [maybeLoad]),
   );
 
   const favSet = useMemo(() => new Set(prefs.favorites.map(favoriteId)), [prefs.favorites]);
@@ -117,6 +127,10 @@ function SearchScreenInner() {
   }, [index, prefs.favorites, favSet]);
 
   const goBack = () => {
+    if (Platform.OS === 'web' && webStack.screen) {
+      webStack.close();
+      return;
+    }
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   };

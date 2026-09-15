@@ -21,6 +21,7 @@ import { HALL_BY_ID } from '@/lib/diningHalls';
 import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
 import { useTabNav } from '@/lib/tabNav';
+import { useWebStack } from '@/lib/webStack';
 
 const DAY_H = 48;
 const DAY_RADIUS = 14;
@@ -51,7 +52,8 @@ function rectsEqual(a: Record<string, ItemLayout>, b: Record<string, ItemLayout>
 
 /**
  * Bottom bar: the sliding pill only covers the three day cards. Search and
- * settings sit beside them and open their own stack screens.
+ * settings sit beside them and open their own stack screens (or overlays on
+ * web when page URLs are disabled).
  */
 export default function DiningTabBar() {
   const insets = useSafeAreaInsets();
@@ -61,9 +63,10 @@ export default function DiningTabBar() {
   const cornerR = estimateScreenCornerRadius(insets.bottom, width);
   const sideClear = Math.max(0, cornerSideInset(cornerR, bottomPad) - CHROME_INSET);
   const { days, selected, selectDate } = useDay();
-  const { searchEnabled } = usePrefs();
+  const { searchEnabled, hideRoutes } = usePrefs();
   const { activeKey } = useTabNav();
   const router = useRouter();
+  const webStack = useWebStack();
   const { dimmed, dismiss } = useDim();
   const { setJoin } = useHallBottomJoin();
   const [earL, setEarL] = useState(0);
@@ -291,13 +294,19 @@ export default function DiningTabBar() {
               <IconCard
                 label="Search"
                 symbol={SEARCH_SYMBOL}
-                onPress={() => router.push('/search')}
+                onPress={() => {
+                  if (Platform.OS === 'web' && hideRoutes) webStack.open('search');
+                  else router.push('/search');
+                }}
               />
             ) : null}
             <IconCard
               label="Settings"
               symbol={SETTINGS_SYMBOL}
-              onPress={() => router.push('/settings')}
+              onPress={() => {
+                if (Platform.OS === 'web' && hideRoutes) webStack.open('settings');
+                else router.push('/settings');
+              }}
             />
           </View>
         </View>
