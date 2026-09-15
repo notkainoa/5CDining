@@ -12,6 +12,12 @@ export interface MenuItem {
   plantBased?: boolean;
   calories?: number;
   allergens?: Allergen[];
+  /**
+   * Bon Appétit halls (Collins, Malott, McConnell) publish this.
+   * `true` = today's dish, `false` = always-on catalog (bagels, pizza, oatmeal).
+   * Hoch and Pomona omit the key; missing is unknown, not "not featured".
+   */
+  featured?: boolean;
 }
 
 export interface Station {
@@ -130,6 +136,30 @@ export function mealHoursCompact(meal: Meal): string | null {
   const end = formatTimeCompact(meal.endTime);
   if (start && end) return `${start} - ${end}`;
   return start ?? null;
+}
+
+/** Strict public-boolean check. Missing/`false` never count as today's dish. */
+export function isTodaysDish(item: MenuItem): boolean {
+  return item.featured === true;
+}
+
+/**
+ * Keep station grouping; pin `featured: true` above catalog/`unknown` items.
+ * No-op when a station is all today's, all catalog, or has no `featured` key.
+ */
+export function pinTodaysDishes(items: MenuItem[]): MenuItem[] {
+  let todayCount = 0;
+  for (const item of items) {
+    if (isTodaysDish(item)) todayCount += 1;
+  }
+  if (todayCount === 0 || todayCount === items.length) return items;
+  const today: MenuItem[] = [];
+  const rest: MenuItem[] = [];
+  for (const item of items) {
+    if (isTodaysDish(item)) today.push(item);
+    else rest.push(item);
+  }
+  return [...today, ...rest];
 }
 
 /**

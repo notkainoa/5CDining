@@ -15,6 +15,7 @@ import {
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
+  pinTodaysDishes,
   shortMealName,
   type HallMenu,
   type Meal,
@@ -73,7 +74,9 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset open stations for a new menu
     setOpenStations(
-      expandAllRef.current && stationCount > 0 ? Array.from({ length: stationCount }, (_, i) => i) : [],
+      expandAllRef.current && stationCount > 0
+        ? Array.from({ length: stationCount }, (_, i) => i)
+        : [],
     );
   }, [hallId, date, mealIndex, stationCount]);
 
@@ -344,7 +347,8 @@ function MealBody({
       ) : null}
       {meal.stations.map((st, si) => {
         const sOpen = openStations.includes(si);
-        const matchCount = st.items.filter(isMatch).length;
+        const items = pinTodaysDishes(st.items);
+        const matchCount = items.filter(isMatch).length;
         return (
           <View key={`${st.name}-${si}`} style={styles.station}>
             <Pressable
@@ -357,13 +361,13 @@ function MealBody({
               <View style={styles.stationLine} />
               {filtersActive ? (
                 <Text style={styles.stationMeta}>
-                  {matchCount}/{st.items.length}
+                  {matchCount}/{items.length}
                 </Text>
               ) : null}
               <Text style={styles.stationChev}>{sOpen ? '▾' : '›'}</Text>
             </Pressable>
             {sOpen
-              ? st.items.map((it, ii) => {
+              ? items.map((it, ii) => {
                   const match = !filtersActive || isMatch(it);
                   return (
                     <View
