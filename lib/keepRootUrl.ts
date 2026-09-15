@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
 function normalizedPath(): string {
@@ -11,6 +11,9 @@ function normalizedPath(): string {
  * alone so that page can turn the setting on, then redirect home.
  */
 export function useKeepRootUrl(enabled: boolean) {
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
   useEffect(() => {
     if (!enabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
 
@@ -19,6 +22,7 @@ export function useKeepRootUrl(enabled: boolean) {
     const replace = history.replaceState.bind(history);
 
     const pin = () => {
+      if (!enabledRef.current) return;
       if (normalizedPath() === '/no-routes') return;
       if (normalizedPath() === '/' && !window.location.search && !window.location.hash) return;
       replace(history.state, '', '/');
@@ -32,11 +36,13 @@ export function useKeepRootUrl(enabled: boolean) {
       replace(data, unused, url);
       pin();
     };
+    window.addEventListener('popstate', pin);
     pin();
 
     return () => {
       history.pushState = push;
       history.replaceState = replace;
+      window.removeEventListener('popstate', pin);
     };
   }, [enabled]);
 }

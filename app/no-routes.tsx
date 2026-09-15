@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { usePrefs } from '@/lib/settings';
 
 /**
@@ -12,7 +12,8 @@ export default function NoRoutes() {
 
   useEffect(() => {
     if (!loaded) return;
-    if (!hideRoutes) update({ hideRoutes: true });
+    // Web-only setting: a native deep link here must not mutate it.
+    if (Platform.OS === 'web' && !hideRoutes) update({ hideRoutes: true });
     setReady(true);
   }, [hideRoutes, loaded, update]);
 

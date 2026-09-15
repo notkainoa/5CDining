@@ -35,6 +35,10 @@ const PAGES = {
  * on “disable page URLs”, halls switch in memory instead and the address bar
  * stays on `/`.
  */
+
+// Last hall seen in this session, so enabling the setting from Settings keeps
+// the user on the hall they were viewing instead of jumping to the first one.
+let lastHallName = '';
 export default function TabLayoutWeb() {
   return (
     <DayProvider>
@@ -47,15 +51,27 @@ export default function TabLayoutWeb() {
 
 function TabLayoutWebSwitch() {
   const { loaded, hideRoutes } = usePrefs();
+  // Module-level memory (not a ref): the switch unmounts when the real
+  // `/settings` route focuses, so a ref would forget the hall.
+  const rememberHall = useCallback((name: string) => {
+    if (name && name !== 'index') lastHallName = name;
+  }, []);
+
   if (!loaded) return <View style={[styles.fill, styles.boot]} />;
-  if (hideRoutes) return <TabLayoutWebFrozen />;
-  return <TabLayoutWebRouted />;
+  if (hideRoutes) {
+    return <TabLayoutWebFrozen initialHall={lastHallName} onHall={rememberHall} />;
+  }
+  return <TabLayoutWebRouted onHall={rememberHall} />;
 }
 
-function TabLayoutWebRouted() {
+function TabLayoutWebRouted({ onHall }: { onHall: (name: string) => void }) {
   const segments = useSegments();
   const router = useRouter();
   const activeKey = segments.at(1) ?? '';
+
+  useEffect(() => {
+    onHall(activeKey);
+  }, [activeKey, onHall]);
 
   const navigate = useCallback(
     (name: string) => {
@@ -89,7 +105,13 @@ function TabLayoutWebRouted() {
   );
 }
 
-function TabLayoutWebFrozen() {
+function TabLayoutWebFrozen({
+  initialHall,
+  onHall,
+}: {
+  initialHall: string;
+  onHall: (name: string) => void;
+}) {
   const { hallOrder } = usePrefs();
   const pagerRef = useRef<NativePagerHandle>(null);
 
@@ -98,9 +120,15 @@ function TabLayoutWebFrozen() {
     [hallOrder],
   );
 
-  const [activeKey, setActiveKey] = useState(order[0] ?? '');
+  const [activeKey, setActiveKey] = useState(() =>
+    order.includes(initialHall) ? initialHall : (order[0] ?? ''),
+  );
   const activeKeyRef = useRef(activeKey);
   activeKeyRef.current = activeKey;
+
+  useEffect(() => {
+    onHall(activeKey);
+  }, [activeKey, onHall]);
 
   const handlePageSelected = useCallback(
     (i: number) => {

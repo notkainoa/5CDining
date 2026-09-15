@@ -59,6 +59,16 @@ export default function SettingsScreen() {
     return () => clearInterval(t);
   }, [edgeDir]);
 
+  const hideRoutesOn = useRef(prefs.hideRoutes);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (hideRoutesOn.current && !prefs.hideRoutes) {
+      router.replace('/settings');
+    }
+    hideRoutesOn.current = prefs.hideRoutes;
+  }, [prefs.hideRoutes, router]);
+
   const goBack = () => {
     if (Platform.OS === 'web' && webStack.screen) {
       webStack.close();
@@ -262,10 +272,8 @@ export default function SettingsScreen() {
                 danger
                 onToggle={() => {
                   const next = !prefs.hideRoutes;
-                  if (next) webStack.open('settings');
-                  else webStack.close();
+                  if (!next) webStack.close();
                   prefs.update({ hideRoutes: next });
-                  if (!next) router.replace('/settings');
                 }}
               />
             </View>
