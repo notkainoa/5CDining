@@ -11,7 +11,17 @@ export default function Root({ children }: { children: ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
+        />
+        {/*
+          Locked to light: the app hardcodes its light palette everywhere, so
+          tell darkening user agents (e.g. the Google app's Auto Dark Mode /
+          Android WebView algorithmic darkening) not to rewrite our colors.
+          Without this they turn the white menu card gray and the dark text white.
+        */}
+        <meta name="color-scheme" content="only light" />
 
         {/*
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
@@ -29,6 +39,9 @@ export default function Root({ children }: { children: ReactNode }) {
 }
 
 const responsiveBackground = `
+:root {
+  color-scheme: only light;
+}
 body {
   background-color: #000000;
 }`;
