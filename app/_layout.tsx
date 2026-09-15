@@ -1,10 +1,9 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { Theme } from '@/constants/Theme';
 import { SettingsProvider } from '@/lib/settings';
 
@@ -20,6 +19,14 @@ export const unstable_settings = {
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Navigator chrome is always black: the app renders its own dark shell
+// (Theme.black), so the navigation theme must not paint the light theme's
+// white card/background behind screens during push transitions.
+const NAV_THEME = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: Theme.black, card: Theme.black },
+};
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -45,16 +52,11 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
     <SettingsProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
-          />
+      <ThemeProvider value={NAV_THEME}>
+        <Stack screenOptions={{ contentStyle: { backgroundColor: Theme.black } }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="search"
             options={{
@@ -62,7 +64,6 @@ function RootLayoutNav() {
               animation: 'default',
               gestureEnabled: true,
               fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: Theme.black },
             }}
           />
           <Stack.Screen
@@ -72,7 +73,6 @@ function RootLayoutNav() {
               animation: 'default',
               gestureEnabled: true,
               fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: Theme.black },
             }}
           />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
