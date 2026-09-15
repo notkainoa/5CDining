@@ -43,9 +43,10 @@
     "web:clear": "expo start --web --clear",
     "export:web": "expo export --platform web && node scripts/flatten-export-assets.mjs",
     "test:export-assets": "node --test scripts/flatten-export-assets.test.mjs",
+    "test:deploy-preview": "node --test scripts/deploy-preview.test.mjs",
     "serve:web": "npx serve dist",
     "deploy": "npm run export:web && wrangler deploy",
-    "deploy:preview": "npm run export:web && wrangler versions upload",
+    "deploy:preview": "npm run export:web && node scripts/deploy-preview.mjs",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
