@@ -185,7 +185,8 @@ export interface DietPrefs {
  * Highlight (not hide) semantics: an item is "matching" when it satisfies
  * every enabled restriction. Non-matching items are grayed out but stay visible.
  * Plant-based also matches vegan dishes, because Bon Appétit halls omit `plantBased`.
- * Allergen hits gray a dish out. Missing `allergens` is treated as none listed.
+ * Avoided allergens gray a dish out (caller should already include highlight-implied
+ * allergens). Missing `allergens` is treated as none listed.
  */
 export function matchesDiet(item: MenuItem, prefs: DietPrefs): boolean {
   if (prefs.veganOnly && !item.vegan) return false;

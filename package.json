@@ -36,11 +36,11 @@
     "wrangler": "^4.131.2"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "web:clear": "expo start --web --clear",
+    "start": "node scripts/dev-server.mjs",
+    "android": "node scripts/dev-server.mjs --android",
+    "ios": "node scripts/dev-server.mjs --ios",
+    "web": "node scripts/dev-server.mjs --web",
+    "web:clear": "node scripts/dev-server.mjs --web --clear",
     "export:web": "expo export --platform web && node scripts/flatten-export-assets.mjs",
     "test:export-assets": "node --test scripts/flatten-export-assets.test.mjs",
     "serve:web": "npx serve dist",

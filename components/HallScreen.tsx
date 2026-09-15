@@ -24,7 +24,7 @@ import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/Hal
 import { Theme } from '@/constants/Theme';
 import { mealKey, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
-import { hallPublishesAllergens } from '@/lib/allergens';
+import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadHallMenu } from '@/lib/menuCache';
 import { usePrefs } from '@/lib/settings';
@@ -291,7 +291,8 @@ function MealBody({
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
   const prefs = usePrefs();
-  const allergenFilterOn = prefs.avoidedAllergens.length > 0;
+  const avoidedAllergens = effectiveAvoidedAllergens(prefs);
+  const allergenFilterOn = avoidedAllergens.length > 0;
   const canFilterAllergens = allergenFilterOn && hallPublishesAllergens(hallId);
   const glutenFreeOnly = prefs.glutenFreeOnly && hasGlutenFree;
   const filtersActive =
@@ -306,7 +307,7 @@ function MealBody({
       vegetarianOnly: prefs.vegetarianOnly,
       glutenFreeOnly,
       plantBasedOnly: prefs.plantBasedOnly,
-      avoidedAllergens: canFilterAllergens ? prefs.avoidedAllergens : [],
+      avoidedAllergens: canFilterAllergens ? avoidedAllergens : [],
     });
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
