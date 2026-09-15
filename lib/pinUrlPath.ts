@@ -1,16 +1,12 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-function normalizedPath(): string {
-  const path = window.location.pathname.replace(/\/+$/, '');
-  return path || '/';
-}
-
 /**
  * Pin the web address bar to `target` while it is set. Any in-app
  * `pushState`/`replaceState` (including expo-router's own) is rewritten back
- * to the target. Browser Back/Forward is intentionally left alone: Back means
- * leave the page. Pass `null` to disable.
+ * to the target. Comparison is against the raw pathname so variants like a
+ * trailing slash are canonicalized too. Browser Back/Forward is intentionally
+ * left alone: Back means leave the page. Pass `null` to disable.
  */
 export function usePinUrlPath(target: string | null) {
   useEffect(() => {
@@ -21,7 +17,11 @@ export function usePinUrlPath(target: string | null) {
     const replace = history.replaceState.bind(history);
 
     const pin = () => {
-      if (normalizedPath() === target && !window.location.search && !window.location.hash)
+      if (
+        window.location.pathname === target &&
+        !window.location.search &&
+        !window.location.hash
+      )
         return;
       replace(history.state, '', target);
     };

@@ -20,6 +20,13 @@ export default function WebStackHost() {
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
+  // The stack outlives route changes (it sits above the router). Leaving
+  // `/webapp` with an overlay open must not poison Back on normal routes
+  // or resurrect the overlay on return.
+  useEffect(() => {
+    if (!webApp && screen) close();
+  }, [webApp, screen, close]);
+
   if (Platform.OS !== 'web' || !webApp || !screen) return null;
   // Search is a shipped feature flag: never mount its redirecting screen as
   // an overlay while disabled, or the router would leave `/webapp` behind
