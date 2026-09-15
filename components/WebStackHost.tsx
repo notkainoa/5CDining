@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import SearchScreen from '@/app/search';
 import SettingsScreen from '@/app/settings';
@@ -6,11 +7,25 @@ import { useWebStack } from '@/lib/webStack';
 
 /** Covers the `/webapp` app on web when settings or search is open. */
 export default function WebStackHost() {
-  const { screen } = useWebStack();
+  const { screen, close } = useWebStack();
   const webApp = useIsWebApp();
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [close]);
+
   if (Platform.OS !== 'web' || !webApp || !screen) return null;
   return (
-    <View style={styles.cover}>
+    <View
+      style={styles.cover}
+      role="dialog"
+      accessibilityLabel={screen === 'settings' ? 'Settings' : 'Search'}
+    >
       {screen === 'settings' ? <SettingsScreen /> : <SearchScreen />}
     </View>
   );

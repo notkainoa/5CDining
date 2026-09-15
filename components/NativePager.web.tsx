@@ -1,6 +1,7 @@
 import {
   Children,
   forwardRef,
+  isValidElement,
   useImperativeHandle,
   useState,
   type ReactNode,
@@ -28,7 +29,9 @@ interface Props {
 
 /**
  * Web stand-in for `react-native-pager-view`. No swipe — clicking a hall chip
- * swaps the visible page in memory so the address bar can stay on `/`.
+ * swaps the visible page in memory so the address bar can stay on `/webapp`.
+ * Inactive pages stay mounted (hidden) so scroll position, expanded stations,
+ * and loaded state survive switching back.
  */
 const NativePager = forwardRef<NativePagerHandle, Props>(function NativePager(
   { initialPage, onPageSelected, children },
@@ -52,11 +55,23 @@ const NativePager = forwardRef<NativePagerHandle, Props>(function NativePager(
     [onPageSelected],
   );
 
-  return <View style={styles.fill}>{pages[index] ?? null}</View>;
+  return (
+    <View style={styles.fill}>
+      {pages.map((page, i) => (
+        <View
+          key={isValidElement(page) && page.key != null ? page.key : i}
+          style={[styles.fill, i === index ? null : styles.hidden]}
+        >
+          {page}
+        </View>
+      ))}
+    </View>
+  );
 });
 
 export default NativePager;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  hidden: { display: 'none' },
 });
