@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 function normalizedPath(): string {
@@ -13,9 +13,6 @@ function normalizedPath(): string {
  * leave the page. Pass `null` to disable.
  */
 export function usePinUrlPath(target: string | null) {
-  const targetRef = useRef(target);
-  targetRef.current = target;
-
   useEffect(() => {
     if (target == null || Platform.OS !== 'web' || typeof window === 'undefined') return;
 
@@ -24,10 +21,9 @@ export function usePinUrlPath(target: string | null) {
     const replace = history.replaceState.bind(history);
 
     const pin = () => {
-      const want = targetRef.current;
-      if (want == null) return;
-      if (normalizedPath() === want && !window.location.search && !window.location.hash) return;
-      replace(history.state, '', want);
+      if (normalizedPath() === target && !window.location.search && !window.location.hash)
+        return;
+      replace(history.state, '', target);
     };
 
     history.pushState = (data, unused, url) => {

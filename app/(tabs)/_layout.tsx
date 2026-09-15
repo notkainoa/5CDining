@@ -10,33 +10,17 @@ import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
 import { orderedHalls } from '@/lib/diningHalls';
+import { HALL_PAGES, type HallPageKey } from '@/lib/hallPages';
 import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
-import McConnellPage from './mcconnell';
-import FraryPage from './frary';
-import HochPage from './hoch';
-import MalottPage from './malott';
-import CollinsPage from './collins';
-import FrankPage from './frank';
-import OldenborgPage from './oldenborg';
-
-const PAGES = {
-  mcconnell: McConnellPage,
-  frary: FraryPage,
-  hoch: HochPage,
-  malott: MalottPage,
-  collins: CollinsPage,
-  frank: FrankPage,
-  oldenborg: OldenborgPage,
-} as const;
 
 /**
  * Native tab navigator: the pager owns position (real ViewPager2 /
  * UIPageViewController swipes). Swipes and taps never touch the router, so
  * there is no sync loop and no second animation. The route only matters at
  * launch / deep links, which snap the pager without animation.
- * Web uses _layout.web.tsx (expo-router Tabs, or an in-memory pager when
- * “disable page URLs” is on).
+ * Web uses _layout.web.tsx (expo-router Tabs); the URL-less `/webapp`
+ * edition renders FrozenHalls (in-memory pager).
  */
 function TabLayoutNative() {
   const segments = useSegments();
@@ -77,7 +61,7 @@ function TabLayoutNative() {
   const pages = useMemo(
     () =>
       order.map((name) => {
-        const Page = PAGES[name as keyof typeof PAGES];
+        const Page = HALL_PAGES[name as HallPageKey];
         return (
           <View key={name} collapsable={false} style={styles.fill}>
             <Page />

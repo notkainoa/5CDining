@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import SearchScreen from '@/app/search';
 import SettingsScreen from '@/app/settings';
+import { SEARCH_FEATURES } from '@/lib/settings';
 import { useIsWebApp } from '@/lib/webApp';
 import { useWebStack } from '@/lib/webStack';
 
@@ -20,6 +21,10 @@ export default function WebStackHost() {
   }, [close]);
 
   if (Platform.OS !== 'web' || !webApp || !screen) return null;
+  // Search is a shipped feature flag: never mount its redirecting screen as
+  // an overlay while disabled, or the router would leave `/webapp` behind
+  // the pinned address bar.
+  if (screen === 'search' && !SEARCH_FEATURES) return null;
   return (
     <View
       style={styles.cover}

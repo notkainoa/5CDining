@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 import { Platform } from 'react-native';
 import FrozenHalls from '@/components/FrozenHalls';
-import { usePinUrlPath } from '@/lib/keepRootUrl';
+import { usePinUrlPath } from '@/lib/pinUrlPath';
 
 /**
  * `/webapp`: the same halls without page URLs. Hall switches and

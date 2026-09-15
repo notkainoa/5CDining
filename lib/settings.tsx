@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { DINING_HALLS, type HallId } from './diningHalls';
 import { sanitizeAllergens, type Allergen } from './allergens';
 
@@ -114,13 +114,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoaded(true));
   }, []);
 
-  const update = useCallback((patch: Partial<Prefs>) => {
+  const update = (patch: Partial<Prefs>) => {
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
       AsyncStorage.setItem(KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
-  }, []);
+  };
 
   const isFavorite = (label: string) =>
     prefs.favorites.some((f) => favoriteId(f) === favoriteId(label));

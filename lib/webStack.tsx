@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { Platform } from 'react-native';
+import { useRouter, type Href } from 'expo-router';
 
 export type WebScreen = 'settings' | 'search' | null;
 
@@ -25,4 +27,21 @@ export function WebStackProvider({ children }: { children: ReactNode }) {
 
 export function useWebStack(): WebStack {
   return useContext(WebStackContext);
+}
+
+/**
+ * Shared Back behavior for settings/search: close the `/webapp` overlay when
+ * open, otherwise navigate with the router. Keeps both screens in sync.
+ */
+export function useWebStackBack(fallback: Href = '/(tabs)') {
+  const router = useRouter();
+  const webStack = useWebStack();
+  return useCallback(() => {
+    if (Platform.OS === 'web' && webStack.screen) {
+      webStack.close();
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace(fallback);
+  }, [router, webStack, fallback]);
 }

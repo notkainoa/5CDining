@@ -9,25 +9,9 @@ import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
 import { orderedHalls } from '@/lib/diningHalls';
+import { HALL_PAGES, type HallPageKey } from '@/lib/hallPages';
 import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
-import McConnellPage from '@/app/(tabs)/mcconnell';
-import FraryPage from '@/app/(tabs)/frary';
-import HochPage from '@/app/(tabs)/hoch';
-import MalottPage from '@/app/(tabs)/malott';
-import CollinsPage from '@/app/(tabs)/collins';
-import FrankPage from '@/app/(tabs)/frank';
-import OldenborgPage from '@/app/(tabs)/oldenborg';
-
-const PAGES = {
-  mcconnell: McConnellPage,
-  frary: FraryPage,
-  hoch: HochPage,
-  malott: MalottPage,
-  collins: CollinsPage,
-  frank: FrankPage,
-  oldenborg: OldenborgPage,
-} as const;
 
 /**
  * The `/webapp` edition: halls switch in memory via a pager and
@@ -61,7 +45,9 @@ function FrozenHallsInner() {
 
   const [activeKey, setActiveKey] = useState(order[0] ?? '');
   const activeKeyRef = useRef(activeKey);
-  activeKeyRef.current = activeKey;
+  useEffect(() => {
+    activeKeyRef.current = activeKey;
+  });
 
   const handlePageSelected = useCallback(
     (i: number) => {
@@ -84,7 +70,7 @@ function FrozenHallsInner() {
   const pages = useMemo(
     () =>
       order.map((name) => {
-        const Page = PAGES[name as keyof typeof PAGES];
+        const Page = HALL_PAGES[name as HallPageKey];
         return (
           <View key={name} collapsable={false} style={styles.fill}>
             <Page />
@@ -95,6 +81,8 @@ function FrozenHallsInner() {
   );
 
   useEffect(() => {
+    // Only when hall order changes. Including activeKey here would snap the
+    // pager on every chip tap and cancel the swipe animation.
     pagerRef.current?.setPageWithoutAnimation(
       Math.max(0, order.indexOf(activeKeyRef.current)),
     );

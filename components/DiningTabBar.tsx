@@ -54,7 +54,7 @@ function rectsEqual(a: Record<string, ItemLayout>, b: Record<string, ItemLayout>
 /**
  * Bottom bar: the sliding pill only covers the three day cards. Search and
  * settings sit beside them and open their own stack screens (or overlays on
- * web when page URLs are disabled).
+ * `/webapp`, where the address bar never changes).
  */
 export default function DiningTabBar() {
   const insets = useSafeAreaInsets();

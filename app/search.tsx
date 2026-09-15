@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   ActivityIndicator,
   Image,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import mediumWeight from 'expo-symbols/androidWeights/medium';
@@ -32,7 +31,7 @@ import {
   type SearchHit,
 } from '@/lib/search';
 import { favoriteId, SEARCH_FEATURES, usePrefs } from '@/lib/settings';
-import { useWebStack } from '@/lib/webStack';
+import { useWebStackBack } from '@/lib/webStack';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
 const SEARCH_SYMBOL = { ios: 'magnifyingglass', android: 'search', web: 'search' } as const;
@@ -48,8 +47,6 @@ export default function SearchScreen() {
 
 function SearchScreenInner() {
   const prefs = usePrefs();
-  const router = useRouter();
-  const webStack = useWebStack();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState<SearchHit[] | null>(null);
@@ -126,14 +123,7 @@ function SearchScreenInner() {
       .sort((a, b) => a.dish.localeCompare(b.dish));
   }, [index, prefs.favorites, favSet]);
 
-  const goBack = () => {
-    if (Platform.OS === 'web' && webStack.screen) {
-      webStack.close();
-      return;
-    }
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)');
-  };
+  const goBack = useWebStackBack();
 
   const c = {
     text: Theme.black,
