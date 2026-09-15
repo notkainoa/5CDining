@@ -4,13 +4,13 @@ import FrozenHalls from '@/components/FrozenHalls';
 import { usePinUrlPath } from '@/lib/keepRootUrl';
 
 /**
- * `/no-routes`: the same halls without page URLs. Hall switches and
- * settings/search open in memory, so the address bar stays on `/no-routes`.
+ * `/webapp`: the same halls without page URLs. Hall switches and
+ * settings/search open in memory, so the address bar stays on `/webapp`.
  * The normal app at `/` is untouched. Native has no URLs, so it renders the
  * normal app instead.
  */
-export default function NoRoutes() {
-  usePinUrlPath(Platform.OS === 'web' ? '/no-routes' : null);
+export default function WebApp() {
+  usePinUrlPath(Platform.OS === 'web' ? '/webapp' : null);
   if (Platform.OS !== 'web') {
     return <Redirect href="/" />;
   }

@@ -79,7 +79,7 @@ function RootLayoutNav() {
               }}
             />
             <Stack.Screen name="home" options={{ headerShown: false }} />
-            <Stack.Screen name="no-routes" options={{ headerShown: false }} />
+            <Stack.Screen name="webapp" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
           <WebStackHost />

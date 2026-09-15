@@ -30,7 +30,7 @@ const PAGES = {
 } as const;
 
 /**
- * The `/no-routes` edition: halls switch in memory via a pager and
+ * The `/webapp` edition: halls switch in memory via a pager and
  * settings/search open as overlays, so the address bar never changes.
  * Always opens on the first hall in the user's order.
  */

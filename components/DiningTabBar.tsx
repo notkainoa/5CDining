@@ -22,7 +22,7 @@ import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
 import { useTabNav } from '@/lib/tabNav';
 import { useWebStack } from '@/lib/webStack';
-import { useIsNoRoutes } from '@/lib/noRoutes';
+import { useIsWebApp } from '@/lib/webApp';
 
 const DAY_H = 48;
 const DAY_RADIUS = 14;
@@ -65,7 +65,7 @@ export default function DiningTabBar() {
   const sideClear = Math.max(0, cornerSideInset(cornerR, bottomPad) - CHROME_INSET);
   const { days, selected, selectDate } = useDay();
   const { searchEnabled } = usePrefs();
-  const noRoutes = useIsNoRoutes();
+  const webApp = useIsWebApp();
   const { activeKey } = useTabNav();
   const router = useRouter();
   const webStack = useWebStack();
@@ -297,7 +297,7 @@ export default function DiningTabBar() {
                 label="Search"
                 symbol={SEARCH_SYMBOL}
                 onPress={() => {
-                  if (Platform.OS === 'web' && noRoutes) webStack.open('search');
+                  if (Platform.OS === 'web' && webApp) webStack.open('search');
                   else router.push('/search');
                 }}
               />
@@ -306,7 +306,7 @@ export default function DiningTabBar() {
               label="Settings"
               symbol={SETTINGS_SYMBOL}
               onPress={() => {
-                if (Platform.OS === 'web' && noRoutes) webStack.open('settings');
+                if (Platform.OS === 'web' && webApp) webStack.open('settings');
                 else router.push('/settings');
               }}
             />
