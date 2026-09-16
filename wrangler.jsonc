@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "better5cmenu",
+  "name": "5c-dining",
   "compatibility_date": "2026-09-14",
   "preview_urls": true,
   "workers_dev": true,

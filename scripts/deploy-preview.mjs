@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const WORKER_NAME = 'better5cmenu';
+const WORKER_NAME = '5c-dining';
 
 export function previewAliasFromRef(ref, workerName = WORKER_NAME) {
   let alias = String(ref ?? '')

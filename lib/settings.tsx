@@ -70,7 +70,7 @@ function withSearchFeatures(prefs: Prefs): Prefs {
   return { ...prefs, searchEnabled: false, favoritesEnabled: false };
 }
 
-const KEY = 'better5cmenu:prefs:v1';
+const KEY = '5cdining:prefs:v1';
 
 interface Ctx extends Prefs {
   loaded: boolean;

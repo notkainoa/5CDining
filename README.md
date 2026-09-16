@@ -1,4 +1,4 @@
-# Better5CMenu — 5C Dining Hall App (Expo SDK 57)
+# 5C Dining — 5C Dining Hall App (Expo SDK 57)
 
 Dining hall menus for the Claremont Colleges, powered by
 `https://five-c-menu-api.kainoanewton.workers.dev/v1/menus`.
