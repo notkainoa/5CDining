@@ -5,8 +5,10 @@ import { useCallback } from 'react';
 import DiningTabBar from '@/components/DiningTabBar';
 import HallTabBar from '@/components/HallTabBar';
 import { AppShell, HallChrome } from '@/components/HallChrome';
+import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
+import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
 
 /**
@@ -24,6 +26,7 @@ export default function TabLayoutWeb() {
 }
 
 function TabLayoutWebInner() {
+  const { loaded } = usePrefs();
   const segments = useSegments();
   const router = useRouter();
   const activeKey = segments.at(1) ?? '';
@@ -34,6 +37,10 @@ function TabLayoutWebInner() {
     },
     [router],
   );
+
+  // Wait for stored prefs (hall order, filters) so first paint never flashes
+  // defaults. Matches the native layout.
+  if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 
   return (
     <TabNavProvider activeKey={activeKey} navigate={navigate}>
@@ -62,4 +69,5 @@ function TabLayoutWebInner() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  boot: { backgroundColor: Theme.black },
 });
