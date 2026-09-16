@@ -14,7 +14,13 @@ import {
   useHallBottomJoin,
 } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
-import { dateCardLabel } from '@/lib/dates';
+import { DATE_WINDOW_DAYS, dateCardLabel } from '@/lib/dates';
+import {
+  rectsFromWidths,
+  DAY_CHROME_PAD,
+  DAY_SLOT_GAP,
+  type DaySlotRect,
+} from '@/lib/dayPillLayout';
 import { cornerSideInset, estimateScreenCornerRadius } from '@/lib/screenCorners';
 import { useDay } from '@/lib/day';
 import { HALL_BY_ID } from '@/lib/diningHalls';
@@ -26,18 +32,12 @@ const DAY_H = 48;
 const DAY_RADIUS = 14;
 const IDLE_OP = 0.5;
 const MOVE_SPRING = { duration: 340, dampingRatio: 1 };
-const PILL_TOP = 8;
+const PILL_TOP = DAY_CHROME_PAD;
 
 const SEARCH_SYMBOL = { ios: 'magnifyingglass', android: 'search', web: 'search' } as const;
 const SETTINGS_SYMBOL = { ios: 'gearshape', android: 'settings', web: 'settings' } as const;
 
-interface ItemLayout {
-  x: number;
-  w: number;
-  r: number;
-}
-
-function rectsEqual(a: Record<string, ItemLayout>, b: Record<string, ItemLayout>): boolean {
+function rectsEqual(a: Record<string, DaySlotRect>, b: Record<string, DaySlotRect>): boolean {
   const ak = Object.keys(a);
   const bk = Object.keys(b);
   if (ak.length !== bk.length) return false;
@@ -50,8 +50,8 @@ function rectsEqual(a: Record<string, ItemLayout>, b: Record<string, ItemLayout>
 }
 
 /**
- * Bottom bar: the sliding pill only covers the three day cards. Search and
- * settings sit beside them and open their own stack screens.
+ * Bottom bar: the sliding pill only covers the three day cards. Search opens
+ * an overlay on top of the current hall; settings still pushes its own screen.
  */
 export default function DiningTabBar() {
   const insets = useSafeAreaInsets();
@@ -62,24 +62,20 @@ export default function DiningTabBar() {
   const sideClear = Math.max(0, cornerSideInset(cornerR, bottomPad) - CHROME_INSET);
   const { days, selected, selectDate } = useDay();
   const { searchEnabled } = usePrefs();
-  const { activeKey } = useTabNav();
+  const { activeKey, lastHallId } = useTabNav();
   const router = useRouter();
   const { dimmed, dismiss } = useDim();
   const { setJoin } = useHallBottomJoin();
   const [earL, setEarL] = useState(0);
   const [earR, setEarR] = useState(0);
-  const [rowBox, setRowBox] = useState({ w: 0, h: 0 });
   const wrapRef = useRef<View>(null);
   const daysChromeRef = useRef<View>(null);
   const wrapW = useRef(0);
-  const rowRef = useRef<View>(null);
-  const dayNodeRefs = useRef<Record<number, View | null>>({});
   const nest = useRef({ chromeX: 0, chromeW: 0 });
-  const parentRel = useRef<Record<number, { x: number; w: number }>>({});
-  const locals = useRef<Record<number, { x: number; w: number }>>({});
-  const [rects, setRects] = useState<Record<string, ItemLayout>>({});
+  const slotW = useRef<number[]>([]);
+  const [rects, setRects] = useState<Record<string, DaySlotRect>>({});
 
-  const onHall = activeKey in HALL_BY_ID;
+  const onHall = (activeKey in HALL_BY_ID ? activeKey : lastHallId) in HALL_BY_ID;
   const tabId = `day:${selected}`;
   const blobL = useSharedValue(0);
   const blobR = useSharedValue(0);
@@ -87,62 +83,18 @@ export default function DiningTabBar() {
   const blobOn = useSharedValue(0);
 
   const publishRects = useCallback(() => {
-    const next: Record<string, ItemLayout> = {};
-    for (const [k, v] of Object.entries(locals.current)) {
-      if (v.w <= 0) continue;
-      next[`day:${k}`] = { x: v.x, w: v.w, r: DAY_RADIUS };
-    }
+    const next = rectsFromWidths(
+      Array.from({ length: DATE_WINDOW_DAYS }, (_, i) => slotW.current[i] ?? 0),
+    );
     setRects((prev) => (rectsEqual(prev, next) ? prev : next));
-  }, []);
-
-  const bootOrIgnore = useCallback(
-    (id: string, x: number, w: number) => {
-      if (id !== tabId || w <= 0) return;
-      if (blobR.value - blobL.value >= 0.5) return;
-      blobL.set(x);
-      blobR.set(x + w);
-      blobRad.set(DAY_RADIUS);
-      blobOn.set(1);
-    },
-    [tabId, blobL, blobR, blobRad, blobOn],
-  );
-
-  const placeInRow = useCallback((node: View | null, parentX: number, localX: number, w: number, apply: (x: number, w: number) => void) => {
-    const composed = parentX + localX;
-    const row = rowRef.current;
-    if (Platform.OS === 'web' && node && row) {
-      node.measureInWindow((ix, _iy, iw) => {
-        row.measureInWindow((rx) => {
-          apply(ix - rx, iw);
-        });
-      });
-      return;
-    }
-    apply(composed, w);
-  }, []);
-
-  const commitDay = useCallback(
-    (i: number, x: number, w: number) => {
-      locals.current[i] = { x, w };
-      publishRects();
-      bootOrIgnore(`day:${i}`, x, w);
-    },
-    [publishRects, bootOrIgnore],
-  );
-
-  const takeDay = useCallback(
-    (i: number, localX: number, w: number) => {
-      parentRel.current[i] = { x: localX, w };
-      placeInRow(dayNodeRefs.current[i], nest.current.chromeX, localX, w, (x, rw) => commitDay(i, x, rw));
-    },
-    [placeInRow, commitDay],
-  );
-
-  const remeasureBar = useCallback(() => {
-    for (const [k, v] of Object.entries(parentRel.current)) {
-      takeDay(Number(k), v.x, v.w);
-    }
-  }, [takeDay]);
+    const lay = next[tabId];
+    if (!lay || lay.w <= 0) return;
+    if (blobR.value - blobL.value >= 0.5) return;
+    blobL.set(lay.x);
+    blobR.set(lay.x + lay.w);
+    blobRad.set(DAY_RADIUS);
+    blobOn.set(1);
+  }, [tabId, blobL, blobR, blobRad, blobOn]);
 
   useEffect(() => {
     const lay = rects[tabId];
@@ -212,7 +164,9 @@ export default function DiningTabBar() {
 
   useEffect(() => {
     measureJoin();
-  }, [width, sideClear, SEARCH_FEATURES, searchEnabled, compactDays, measureJoin]);
+    const id = requestAnimationFrame(() => measureJoin());
+    return () => cancelAnimationFrame(id);
+  }, [width, sideClear, searchEnabled, compactDays, measureJoin]);
 
   return (
     <View
@@ -225,25 +179,15 @@ export default function DiningTabBar() {
       }}
     >
       <View style={styles.rowHost}>
-        <View
-          ref={rowRef}
-          collapsable={false}
-          style={styles.row}
-          onLayout={(e) => {
-            const { width: rowW, height: rowH } = e.nativeEvent.layout;
-            setRowBox((prev) => (prev.w === rowW && prev.h === rowH ? prev : { w: rowW, h: rowH }));
-            remeasureBar();
-            measureJoin();
-          }}
-        >
+        <View collapsable={false} style={styles.row}>
           <View
             ref={daysChromeRef}
             collapsable={false}
             style={styles.daysChrome}
             onLayout={(e) => {
-              nest.current.chromeX = e.nativeEvent.layout.x;
-              nest.current.chromeW = e.nativeEvent.layout.width;
-              remeasureBar();
+              const { x, width: w } = e.nativeEvent.layout;
+              nest.current.chromeX = x;
+              nest.current.chromeW = w;
               queueMicrotask(measureJoin);
             }}
           >
@@ -257,12 +201,9 @@ export default function DiningTabBar() {
                 <View
                   key={d.toISOString()}
                   collapsable={false}
-                  ref={(n) => {
-                    dayNodeRefs.current[i] = n;
-                  }}
                   onLayout={(e) => {
-                    const { x, width: w } = e.nativeEvent.layout;
-                    queueMicrotask(() => takeDay(i, x, w));
+                    slotW.current[i] = e.nativeEvent.layout.width;
+                    queueMicrotask(publishRects);
                   }}
                   style={styles.daySlot}
                 >
@@ -280,6 +221,26 @@ export default function DiningTabBar() {
                 </View>
               );
             })}
+            <View pointerEvents="none" style={styles.pillLayer}>
+              <Animated.View style={[styles.pill, pillStyle]}>
+                <Animated.View style={[styles.brightRow, brightRowStyle]}>
+                  {days.map((d, i) => {
+                    const lay = rects[`day:${i}`];
+                    if (!lay) return null;
+                    return (
+                      <View
+                        key={d.toISOString()}
+                        style={[styles.brightCell, { left: lay.x, width: lay.w }]}
+                      >
+                        <Text style={styles.dayLabelBright} numberOfLines={1}>
+                          {dateCardLabel(d, i, compactDays)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </Animated.View>
+              </Animated.View>
+            </View>
           </View>
           <View
             style={styles.iconGroup}
@@ -300,26 +261,6 @@ export default function DiningTabBar() {
               onPress={() => router.push('/settings')}
             />
           </View>
-        </View>
-        <View
-          pointerEvents="none"
-          style={[styles.pillLayer, rowBox.w > 0 ? { width: rowBox.w, height: rowBox.h } : null]}
-        >
-          <Animated.View style={[styles.pill, pillStyle]}>
-            <Animated.View style={[styles.brightRow, brightRowStyle]}>
-              {days.map((d, i) => {
-                const lay = rects[`day:${i}`];
-                if (!lay) return null;
-                return (
-                  <View key={d.toISOString()} style={[styles.brightCell, { left: lay.x, width: lay.w }]}>
-                    <Text style={styles.dayLabelBright} numberOfLines={1}>
-                      {dateCardLabel(d, i, compactDays)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </Animated.View>
-          </Animated.View>
         </View>
       </View>
       {dimmed ? (
@@ -409,13 +350,14 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   daysChrome: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 8,
+    gap: DAY_SLOT_GAP,
     backgroundColor: Theme.darkerGray,
     borderBottomLeftRadius: CHROME_RADIUS,
     borderBottomRightRadius: CHROME_RADIUS,
-    padding: 8,
+    padding: DAY_CHROME_PAD,
     overflow: 'visible',
   },
   ear: {
@@ -436,6 +378,8 @@ const styles = StyleSheet.create({
   pillLayer: {
     position: 'absolute',
     top: 0,
+    right: 0,
+    bottom: 0,
     left: 0,
     pointerEvents: 'none',
     zIndex: 1,

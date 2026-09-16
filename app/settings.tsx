@@ -7,11 +7,7 @@ import { SymbolView } from 'expo-symbols';
 import mediumWeight from 'expo-symbols/androidWeights/medium';
 import DietBadge from '@/components/DietBadge';
 import HallOrderList from '@/components/HallOrderList';
-import {
-  CHROME_BOTTOM_RADIUS,
-  CHROME_INSET,
-  CHROME_RADIUS,
-} from '@/components/HallChrome';
+import { CHROME_BOTTOM_RADIUS, CHROME_INSET, CHROME_RADIUS } from '@/components/HallChrome';
 import { ALLERGEN_LABELS, ALLERGENS, impliedAllergens } from '@/lib/allergens';
 import { orderedHalls } from '@/lib/diningHalls';
 import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
@@ -136,8 +132,8 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.section}>Search & favorites</Text>
               <Row
-                label="Search page"
-                hint="Adds a search button in the bottom bar for finding dishes."
+                label="Search"
+                hint="Adds a search button in the bottom bar. Opens over the current hall."
                 value={prefs.searchEnabled}
                 disabled={!prefs.loaded}
                 onToggle={() =>

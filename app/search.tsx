@@ -1,24 +1,32 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { SymbolView } from 'expo-symbols';
 import mediumWeight from 'expo-symbols/androidWeights/medium';
-import {
-  CHROME_BOTTOM_RADIUS,
-  CHROME_INSET,
-  CHROME_RADIUS,
-} from '@/components/HallChrome';
+import { CHROME_INSET, CHROME_RADIUS, INNER_CHIP_RADIUS } from '@/components/HallChrome';
 import HeartButton from '@/components/HeartButton';
 import { Theme } from '@/constants/Theme';
 import { todayInLA } from '@/lib/dates';
@@ -32,8 +40,25 @@ import {
 } from '@/lib/search';
 import { favoriteId, SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 
-const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
 const SEARCH_SYMBOL = { ios: 'magnifyingglass', android: 'search', web: 'search' } as const;
+const CLOSE_SYMBOL = { ios: 'xmark', android: 'close', web: 'close' } as const;
+
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const ENTER_SPRING = { duration: 340, dampingRatio: 1 };
+const EXIT_MS = 180;
+const REDUCE_MS = 140;
+
+const webInputStyle =
+  Platform.OS === 'web'
+    ? ({
+        outlineWidth: 0,
+        outlineStyle: 'none',
+        outlineColor: 'transparent',
+        boxShadow: 'none',
+        caretColor: Theme.white,
+        cursor: 'text',
+      } as Record<string, string | number>)
+    : null;
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -47,13 +72,71 @@ export default function SearchScreen() {
 function SearchScreenInner() {
   const prefs = usePrefs();
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const reduceMotion = useReducedMotion() === true;
+  const progress = useSharedValue(0);
+  const allowingRemove = useRef(false);
+  const inputRef = useRef<TextInput>(null);
+
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState<SearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [resultsH, setResultsH] = useState(0);
   const loadedDay = useRef('');
-  const bottomPad = Math.max((insets.bottom * 6) / 10, CHROME_INSET);
+
+  const dismiss = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, [router]);
+
+  useEffect(() => {
+    progress.set(
+      reduceMotion
+        ? withTiming(1, { duration: REDUCE_MS, easing: EASE_OUT })
+        : withSpring(1, ENTER_SPRING),
+    );
+  }, [progress, reduceMotion]);
+
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 40);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const sub = navigation.addListener('beforeRemove', (e) => {
+      if (allowingRemove.current) return;
+      e.preventDefault();
+      allowingRemove.current = true;
+      const action = e.data.action;
+      const finish = () => navigation.dispatch(action);
+      const unlock = () => {
+        allowingRemove.current = false;
+      };
+      progress.set(
+        withTiming(
+          0,
+          { duration: reduceMotion ? REDUCE_MS : EXIT_MS, easing: EASE_OUT },
+          (finished) => {
+            if (finished) runOnJS(finish)();
+            else runOnJS(unlock)();
+          },
+        ),
+      );
+    });
+    return sub;
+  }, [navigation, progress, reduceMotion]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onKeyDown = (event: Event) => {
+      if ('key' in event && event.key === 'Escape') dismiss();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [dismiss]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,24 +199,14 @@ function SearchScreenInner() {
       .sort((a, b) => a.dish.localeCompare(b.dish));
   }, [index, prefs.favorites, favSet]);
 
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)');
-  };
-
-  const c = {
-    text: Theme.black,
-    sub: Theme.foodItem,
-    card: Theme.white,
-    border: 'rgba(0, 0, 0, 0.08)',
-  };
-
   let body: ReactNode;
   if (!prefs.searchEnabled) {
     body = (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Search is off</Text>
-        <Text style={styles.hint}>Enable it in Settings to search dishes across all dining halls.</Text>
+        <Text style={styles.hint}>
+          Enable it in Settings to search dishes across all dining halls.
+        </Text>
       </View>
     );
   } else if (loading && index === null) {
@@ -147,7 +220,10 @@ function SearchScreenInner() {
     body = (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Couldn&apos;t load menus</Text>
-        <Pressable onPress={load} style={styles.retry}>
+        <Pressable
+          onPress={load}
+          style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+        >
           <Text style={styles.retryText}>Retry</Text>
         </Pressable>
       </View>
@@ -155,122 +231,198 @@ function SearchScreenInner() {
   } else if (query.trim()) {
     body =
       groups.length === 0 ? (
-        <Text style={styles.pageHint}>No dishes match “{query.trim()}”.</Text>
+        <View style={styles.card}>
+          <Text style={styles.hint}>{`No dishes match "${query.trim()}".`}</Text>
+        </View>
       ) : (
-        groups.map((g) => <DishCard key={g.id} group={g} c={c} />)
+        groups.map((g) => <DishCard key={g.id} group={g} />)
       );
   } else if (prefs.favoritesEnabled) {
     body =
       prefs.favorites.length === 0 ? (
-        <Text style={styles.pageHint}>
-          Tap ♥ on any dish to save it here. Search above to find dishes across all halls.
-        </Text>
+        <View style={styles.card}>
+          <Text style={styles.hint}>
+            Tap ♥ on any dish to save it here. Search above to find dishes across all halls.
+          </Text>
+        </View>
       ) : (
-        favGroups.map((g) => <DishCard key={g.id} group={g} c={c} />)
+        favGroups.map((g) => <DishCard key={g.id} group={g} />)
       );
   } else {
     body = (
-      <Text style={styles.pageHint}>Search dishes across all 7 dining halls, today and tomorrow.</Text>
+      <View style={styles.card}>
+        <Text style={styles.hint}>
+          Search dishes across all 7 dining halls, today and tomorrow.
+        </Text>
+      </View>
     );
   }
 
+  const listing =
+    (query.trim() && groups.length > 0) ||
+    (!query.trim() && prefs.favoritesEnabled && favGroups.length > 0);
+
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
+
+  const panelStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    if (reduceMotion) return { opacity: p };
+    return {
+      opacity: p,
+      transform: [{ translateY: (1 - p) * -10 }, { scale: 0.96 + 0.04 * p }],
+    };
+  });
+
+  const sideGutter = Math.max(insets.left, insets.right, CHROME_INSET) + (winW < 600 ? 18 : 8);
+  const bottomPad = Math.max((insets.bottom * 6) / 10, CHROME_INSET) + 56;
+  const maxResults = Math.max(96, Math.round(winH * 0.5));
+  const resultsHeight = listing && resultsH > 0 ? Math.min(resultsH, maxResults) : undefined;
+
   return (
-    <View
-      style={[
-        styles.shell,
-        {
-          paddingTop: Math.max(insets.top, CHROME_INSET),
-          paddingLeft: Math.max(insets.left, CHROME_INSET),
-          paddingRight: Math.max(insets.right, CHROME_INSET),
-          paddingBottom: bottomPad,
-        },
-      ]}
-    >
+    <View style={styles.shell} accessibilityViewIsModal>
       <StatusBar style="light" />
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={4}
-          onPress={goBack}
-          style={({ pressed }) => [styles.backBtn, pressed && styles.backPressed]}
+      <Animated.View style={[styles.scrim, scrimStyle]} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss search"
+        onPress={dismiss}
+        style={styles.dismissHit}
+      />
+      <KeyboardAvoidingView
+        style={styles.avoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View
+          style={[
+            styles.wrap,
+            {
+              paddingTop: Math.max(insets.top, CHROME_INSET) + 48,
+              paddingLeft: sideGutter,
+              paddingRight: sideGutter,
+              paddingBottom: bottomPad,
+            },
+          ]}
         >
-          <SymbolView
-            name={BACK_SYMBOL}
-            tintColor={Theme.white}
-            size={22}
-            weight={{ ios: 'medium', android: mediumWeight }}
-          />
-        </Pressable>
-        <Text style={styles.title}>Search</Text>
-      </View>
-      <View style={styles.chrome}>
-        <ScrollView
-          style={styles.page}
-          contentContainerStyle={styles.body}
-          keyboardShouldPersistTaps="handled"
-        >
-          {prefs.searchEnabled ? (
-            <View style={styles.searchBar}>
-              <SymbolView
-                name={SEARCH_SYMBOL}
-                tintColor={Theme.foodItem}
-                size={18}
-                weight={{ ios: 'medium', android: mediumWeight }}
-              />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search dishes…"
-                placeholderTextColor={Theme.foodItem}
-                autoCorrect={false}
-                style={styles.input}
-              />
-              {query.length > 0 ? (
-                <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear search">
-                  <Text style={styles.clear}>✕</Text>
+          <Animated.View
+            accessibilityRole="search"
+            accessibilityLabel="Search dishes"
+            style={[styles.panelLift, panelStyle]}
+          >
+            <View style={styles.panel}>
+              <View style={styles.searchHeader}>
+                {prefs.searchEnabled ? (
+                  <View style={styles.searchBar}>
+                    <SymbolView
+                      name={SEARCH_SYMBOL}
+                      tintColor={Theme.white}
+                      size={22}
+                      weight={{ ios: 'medium', android: mediumWeight }}
+                    />
+                    <TextInput
+                      ref={inputRef}
+                      value={query}
+                      onChangeText={setQuery}
+                      placeholder="Search dishes…"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      autoComplete="off"
+                      returnKeyType="search"
+                      selectTextOnFocus={false}
+                      underlineColorAndroid="transparent"
+                      selectionColor="rgba(255, 255, 255, 0.28)"
+                      cursorColor={Theme.white}
+                      style={[styles.input, webInputStyle]}
+                    />
+                    {query.length > 0 ? (
+                      <Pressable
+                        onPress={() => setQuery('')}
+                        hitSlop={8}
+                        accessibilityLabel="Clear search"
+                        style={({ pressed }) => pressed && styles.pressed}
+                      >
+                        <SymbolView
+                          name={CLOSE_SYMBOL}
+                          tintColor={Theme.white}
+                          size={16}
+                          weight={{ ios: 'medium', android: mediumWeight }}
+                        />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View style={styles.searchBarSpacer} />
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close search"
+                  onPress={dismiss}
+                  style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
+                >
+                  <SymbolView
+                    name={CLOSE_SYMBOL}
+                    tintColor={Theme.white}
+                    size={22}
+                    weight={{ ios: 'medium', android: mediumWeight }}
+                  />
                 </Pressable>
-              ) : null}
+              </View>
+              {listing ? (
+                <ScrollView
+                  style={[
+                    styles.results,
+                    { maxHeight: maxResults },
+                    resultsHeight != null ? { height: resultsHeight } : null,
+                  ]}
+                  contentContainerStyle={styles.body}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
+                  onContentSizeChange={(_w, h) => {
+                    const next = Math.round(h);
+                    setResultsH((prev) => (prev === next ? prev : next));
+                  }}
+                >
+                  {body}
+                </ScrollView>
+              ) : (
+                <View style={styles.body}>{body}</View>
+              )}
             </View>
-          ) : null}
-          {body}
-        </ScrollView>
-      </View>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
-type CardColors = { text: string; sub: string; card: string; border: string };
-
-function DishCard({ group, c }: { group: DishGroup; c: CardColors }) {
+function DishCard({ group }: { group: DishGroup }) {
   const prefs = usePrefs();
   const shown = group.occ.slice(0, 5);
   return (
     <View style={styles.card}>
       <View style={styles.favRow}>
-        <Text style={[styles.dish, { color: c.text }]}>{group.dish}</Text>
+        <Text style={styles.dish}>{group.dish}</Text>
         {prefs.favoritesEnabled ? <HeartButton label={group.dish} /> : null}
       </View>
       {group.occ.length === 0 ? (
-        <Text style={[styles.occSub, { color: c.sub }]}>Not on today/tomorrow menus</Text>
+        <Text style={styles.occSub}>Not on today/tomorrow menus</Text>
       ) : (
         <>
-          <View style={[styles.occList, { borderTopColor: c.border }]}>
+          <View style={styles.occList}>
             {shown.map((o, i) => {
               const hall = HALL_BY_ID[o.hallId as HallId];
               return (
-                <View
-                  key={`${o.hallId}-${o.day}-${o.meal}-${o.station}`}
-                  style={[styles.occ, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}
-                >
+                <View key={`${o.hallId}-${o.day}-${o.meal}-${o.station}-${i}`} style={styles.occ}>
                   {hall ? (
                     <Image source={hall.logo} style={styles.occLogo} resizeMode="contain" />
                   ) : null}
                   <View style={styles.occTexts}>
-                    <Text style={[styles.occMain, { color: c.text }]}>
+                    <Text style={styles.occMain}>
                       {o.hallName} · {o.day} {o.dateLabel}
                     </Text>
-                    <Text style={[styles.occSub, { color: c.sub }]}>
+                    <Text style={styles.occSub}>
                       {o.meal}
                       {o.hours ? ` ${o.hours}` : ''} · {o.station}
                     </Text>
@@ -280,9 +432,7 @@ function DishCard({ group, c }: { group: DishGroup; c: CardColors }) {
             })}
           </View>
           {group.occ.length > shown.length ? (
-            <Text style={[styles.more, { color: c.sub }]}>
-              +{group.occ.length - shown.length} more
-            </Text>
+            <Text style={styles.more}>+{group.occ.length - shown.length} more</Text>
           ) : null}
         </>
       )}
@@ -293,24 +443,62 @@ function DishCard({ group, c }: { group: DishGroup; c: CardColors }) {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
-    backgroundColor: Theme.black,
+    backgroundColor: 'transparent',
   },
-  chrome: {
+  scrim: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: Theme.overlay,
+    pointerEvents: 'none',
+  },
+  dismissHit: {
+    ...StyleSheet.absoluteFill,
+  },
+  avoid: {
     flex: 1,
-    backgroundColor: Theme.darkerGray,
-    borderTopLeftRadius: CHROME_RADIUS,
-    borderTopRightRadius: CHROME_RADIUS,
-    borderBottomLeftRadius: CHROME_BOTTOM_RADIUS,
-    borderBottomRightRadius: CHROME_BOTTOM_RADIUS,
-    overflow: 'hidden',
+    pointerEvents: 'box-none',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingBottom: 8,
+  wrap: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    pointerEvents: 'box-none',
+  },
+  panelLift: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    maxHeight: '100%',
+  },
+  panel: {
+    backgroundColor: Theme.darkerGray,
+    borderRadius: CHROME_RADIUS,
+    padding: CHROME_INSET,
     gap: 8,
   },
-  backBtn: {
+  searchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchBar: {
+    flex: 1,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.darkGray,
+    borderRadius: INNER_CHIP_RADIUS,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  searchBarSpacer: { flex: 1 },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Theme.white,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+  },
+  closeBtn: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -318,33 +506,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backPressed: {
+  pressed: {
     transform: [{ scale: 0.97 }],
   },
-  title: {
-    color: Theme.white,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    flex: 1,
-  },
-  page: { flex: 1 },
+  results: { flexGrow: 0, flexShrink: 1 },
   body: {
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 24,
     gap: 8,
   },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.white,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  input: { flex: 1, fontSize: 17, paddingVertical: 14, color: Theme.black },
-  clear: { fontSize: 16, fontWeight: '700', color: Theme.foodItem },
   card: {
     backgroundColor: Theme.white,
     borderRadius: 20,
@@ -353,16 +521,19 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 17, fontWeight: '700', color: Theme.black },
   hint: { fontSize: 13, color: Theme.foodItem },
-  pageHint: { fontSize: 14, color: 'rgba(255,255,255,0.7)', paddingHorizontal: 8, paddingTop: 4 },
-  dish: { flex: 1, fontSize: 16, fontWeight: '800' },
+  dish: { flex: 1, fontSize: 16, fontWeight: '700', color: Theme.black },
   favRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  occList: { borderTopWidth: 1, marginTop: 8 },
-  occ: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 },
+  occList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+    marginTop: 4,
+  },
+  occ: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   occLogo: { width: 26, height: 26 },
   occTexts: { flex: 1, gap: 1 },
-  occMain: { fontSize: 14, fontWeight: '600' },
-  occSub: { fontSize: 12 },
-  more: { fontSize: 12, fontStyle: 'italic', marginTop: 2 },
+  occMain: { fontSize: 14, fontWeight: '600', color: Theme.black },
+  occSub: { fontSize: 12, color: Theme.foodItem },
+  more: { fontSize: 12, fontWeight: '600', color: Theme.foodItem },
   retry: {
     marginTop: 8,
     backgroundColor: Theme.darkGray,

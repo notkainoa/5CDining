@@ -14,7 +14,12 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/Theme';
-import { CHROME_INSET, CHROME_JOIN_EAR, CHROME_RADIUS, INNER_CHIP_RADIUS } from '@/components/HallChrome';
+import {
+  CHROME_INSET,
+  CHROME_JOIN_EAR,
+  CHROME_RADIUS,
+  INNER_CHIP_RADIUS,
+} from '@/components/HallChrome';
 import { HALL_BY_ID, hallChipName, orderedHalls, type DiningHall } from '@/lib/diningHalls';
 import { useDim } from '@/lib/dim';
 import { usePrefs } from '@/lib/settings';
@@ -198,10 +203,10 @@ function gutterEarR(o: number): number {
 
 export default function HallTabBar() {
   const { hallOrder } = usePrefs();
-  const { activeKey, navigate } = useTabNav();
+  const { activeKey, lastHallId, navigate } = useTabNav();
   const { dimmed, dismiss } = useDim();
   const halls = orderedHalls(hallOrder);
-  const activeHall = activeKey in HALL_BY_ID ? activeKey : '';
+  const activeHall = activeKey in HALL_BY_ID ? activeKey : lastHallId;
   const startColor = HALL_BY_ID[activeHall as keyof typeof HALL_BY_ID]?.color ?? FALLBACK_COLOR;
 
   const scrollRef = useAnimatedRef<Animated.ScrollView>();

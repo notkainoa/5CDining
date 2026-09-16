@@ -124,6 +124,13 @@ export const HALL_BY_ID: Record<HallId, DiningHall> = Object.fromEntries(
   DINING_HALLS.map((h) => [h.id, h]),
 ) as Record<HallId, DiningHall>;
 
+/** First path/segment that is a dining hall id, if any. */
+export function hallIdFromParts(parts: readonly string[]): HallId | undefined {
+  for (const part of parts) {
+    if (part in HALL_BY_ID) return part as HallId;
+  }
+}
+
 /** Single-line chip label. Hyphenated names (Hoch-Shanahan) keep the first part. */
 export function hallChipName(hall: DiningHall): string {
   const cut = hall.name.indexOf('-');

@@ -1,12 +1,13 @@
 import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Tabs, useRouter, useSegments, type Href } from 'expo-router';
+import { Tabs, usePathname, useRouter, useSegments, type Href } from 'expo-router';
 import { useCallback } from 'react';
 import DiningTabBar from '@/components/DiningTabBar';
 import HallTabBar from '@/components/HallTabBar';
 import { AppShell, HallChrome } from '@/components/HallChrome';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
+import { hallIdFromParts } from '@/lib/diningHalls';
 import { TabNavProvider } from '@/lib/tabNav';
 
 /**
@@ -24,9 +25,10 @@ export default function TabLayoutWeb() {
 }
 
 function TabLayoutWebInner() {
+  const pathname = usePathname();
   const segments = useSegments();
   const router = useRouter();
-  const activeKey = segments.at(1) ?? '';
+  const activeKey = hallIdFromParts(pathname.split('/')) ?? hallIdFromParts(segments) ?? '';
 
   const navigate = useCallback(
     (name: string) => {

@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Theme } from '@/constants/Theme';
 import { SettingsProvider } from '@/lib/settings';
+import { HallRouteProvider } from '@/lib/tabNav';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -49,35 +50,37 @@ function RootLayoutNav() {
 
   return (
     <SettingsProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{
-              headerShown: false,
-              animation: 'default',
-              gestureEnabled: true,
-              fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: Theme.black },
-            }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{
-              headerShown: false,
-              animation: 'default',
-              gestureEnabled: true,
-              fullScreenGestureEnabled: true,
-              contentStyle: { backgroundColor: Theme.black },
-            }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
+      <HallRouteProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen
+              name="(tabs)"
+              options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
+            />
+            <Stack.Screen
+              name="search"
+              options={{
+                headerShown: false,
+                presentation: 'transparentModal',
+                animation: 'none',
+                gestureEnabled: false,
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: false,
+                animation: 'default',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: true,
+                contentStyle: { backgroundColor: Theme.black },
+              }}
+            />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+        </ThemeProvider>
+      </HallRouteProvider>
     </SettingsProvider>
   );
 }
