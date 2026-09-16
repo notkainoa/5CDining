@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { Theme } from '@/constants/Theme';
+import DocumentTitle from '@/components/DocumentTitle';
 import { SettingsProvider } from '@/lib/settings';
 
 export {
@@ -54,6 +55,7 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <SettingsProvider>
+      <DocumentTitle />
       <ThemeProvider value={NAV_THEME}>
         <Stack screenOptions={{ contentStyle: { backgroundColor: Theme.black } }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

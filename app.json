@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Better5CMenu",
-    "slug": "Better5CMenu",
+    "name": "5C Dining",
+    "slug": "5c-dining",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "better5cmenu",
+    "scheme": "fivecdining",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true

@@ -15,6 +15,6 @@ test('prefixes aliases that would start with a number', () => {
 
 test('truncates so alias plus worker name fit in a DNS label', () => {
   const alias = previewAliasFromRef('a'.repeat(80));
-  assert.equal(alias.length + 1 + 'better5cmenu'.length, 63);
+  assert.equal(alias.length + 1 + '5c-dining'.length, 63);
   assert.match(alias, /^a+$/);
 });
