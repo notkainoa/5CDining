@@ -43,6 +43,7 @@
     "web:clear": "expo start --web --clear",
     "export:web": "expo export --platform web && node scripts/flatten-export-assets.mjs",
     "test:export-assets": "node --test scripts/flatten-export-assets.test.mjs",
+    "test:day-pill-layout": "node --test scripts/day-pill-layout.test.mjs",
     "test:deploy-preview": "node --test scripts/deploy-preview.test.mjs",
     "serve:web": "npx serve dist",
     "deploy": "npm run export:web && wrangler deploy",

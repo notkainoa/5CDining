@@ -7,7 +7,7 @@ import { sanitizeAllergens, type Allergen } from './allergens';
  * Search page, dish hearts, and the Settings rows for both.
  * Flip to true to ship those features again; stored prefs are kept as-is.
  */
-export const SEARCH_FEATURES = false;
+export const SEARCH_FEATURES = true;
 
 export interface Prefs {
   /** Left-to-right dining hall order. First hall is the launch page. */
@@ -39,7 +39,7 @@ const DEFAULTS: Prefs = {
   avoidedAllergens: [],
   showCalories: false,
   showDescriptions: true,
-  searchEnabled: false,
+  searchEnabled: true,
   favoritesEnabled: false,
   expandAllDefault: true,
   favorites: [],

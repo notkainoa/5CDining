@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -377,8 +377,9 @@ function MealBody({
                     >
                       <View style={styles.itemRow}>
                         <Text style={styles.itemName}>{it.name}</Text>
-                        <DietLabels item={it} showCalories={prefs.showCalories} />
-                        {prefs.favoritesEnabled ? <HeartButton label={it.name} /> : null}
+                        <DietLabels item={it} showCalories={prefs.showCalories}>
+                          {prefs.favoritesEnabled ? <HeartButton label={it.name} /> : null}
+                        </DietLabels>
                       </View>
                       {prefs.showDescriptions && it.description ? (
                         <Text style={styles.itemDesc}>{it.description}</Text>
@@ -394,7 +395,15 @@ function MealBody({
   );
 }
 
-function DietLabels({ item, showCalories }: { item: MenuItem; showCalories: boolean }) {
+function DietLabels({
+  item,
+  showCalories,
+  children,
+}: {
+  item: MenuItem;
+  showCalories: boolean;
+  children?: ReactNode;
+}) {
   return (
     <View style={styles.labels}>
       {item.vegan ? (
@@ -407,6 +416,7 @@ function DietLabels({ item, showCalories }: { item: MenuItem; showCalories: bool
       {showCalories && typeof item.calories === 'number' ? (
         <Text style={styles.label}>{item.calories} cal</Text>
       ) : null}
+      {children}
     </View>
   );
 }
@@ -588,6 +598,12 @@ const styles = StyleSheet.create({
     color: Theme.foodMuted,
     paddingRight: 8,
   },
-  labels: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 1 },
+  labels: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 1,
+    flexShrink: 0,
+  },
   label: { fontSize: 12, fontWeight: '600', color: Theme.foodItem },
 });
