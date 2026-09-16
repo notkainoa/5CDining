@@ -1,4 +1,4 @@
-const DAY_RADIUS = 14;
+export const DAY_RADIUS = 14;
 
 export const DAY_CHROME_PAD = 8;
 export const DAY_SLOT_GAP = 8;

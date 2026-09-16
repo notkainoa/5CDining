@@ -85,6 +85,8 @@ function SearchScreenInner() {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [resultsH, setResultsH] = useState(0);
+  const [wrapH, setWrapH] = useState(0);
+  const [headerH, setHeaderH] = useState(0);
   const loadedDay = useRef('');
 
   const dismiss = useCallback(() => {
@@ -276,8 +278,17 @@ function SearchScreenInner() {
   });
 
   const sideGutter = Math.max(insets.left, insets.right, CHROME_INSET) + (winW < 600 ? 18 : 8);
+  const padTop = Math.max(insets.top, CHROME_INSET) + 48;
   const bottomPad = Math.max((insets.bottom * 6) / 10, CHROME_INSET) + 56;
-  const maxResults = Math.max(96, Math.round(winH * 0.5));
+  // winH doesn't shrink with the iOS keyboard (behavior="padding" shrinks the
+  // wrap instead), so also clamp to the measured space the panel can occupy.
+  // Otherwise the ScrollView viewport equals its content height and the portion
+  // clipped by panelLift's maxHeight: '100%' has a zero scroll range.
+  const winCap = Math.max(96, Math.round(winH * 0.5));
+  const panelOverhead = CHROME_INSET * 2 + 8;
+  const measuredCap = wrapH > 0 ? wrapH - padTop - bottomPad - headerH - panelOverhead : undefined;
+  const maxResults =
+    measuredCap != null ? Math.max(48, Math.min(winCap, Math.floor(measuredCap))) : winCap;
   const resultsHeight = listing && resultsH > 0 ? Math.min(resultsH, maxResults) : undefined;
 
   return (
@@ -298,12 +309,16 @@ function SearchScreenInner() {
           style={[
             styles.wrap,
             {
-              paddingTop: Math.max(insets.top, CHROME_INSET) + 48,
+              paddingTop: padTop,
               paddingLeft: sideGutter,
               paddingRight: sideGutter,
               paddingBottom: bottomPad,
             },
           ]}
+          onLayout={(e) => {
+            const next = Math.round(e.nativeEvent.layout.height);
+            setWrapH((prev) => (prev === next ? prev : next));
+          }}
         >
           <Animated.View
             accessibilityRole="search"
@@ -311,7 +326,13 @@ function SearchScreenInner() {
             style={[styles.panelLift, panelStyle]}
           >
             <View style={styles.panel}>
-              <View style={styles.searchHeader}>
+              <View
+                style={styles.searchHeader}
+                onLayout={(e) => {
+                  const next = Math.round(e.nativeEvent.layout.height);
+                  setHeaderH((prev) => (prev === next ? prev : next));
+                }}
+              >
                 {prefs.searchEnabled ? (
                   <View style={styles.searchBar}>
                     <SymbolView
@@ -340,6 +361,7 @@ function SearchScreenInner() {
                       <Pressable
                         onPress={() => setQuery('')}
                         hitSlop={8}
+                        accessibilityRole="button"
                         accessibilityLabel="Clear search"
                         style={({ pressed }) => pressed && styles.pressed}
                       >

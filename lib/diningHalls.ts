@@ -127,7 +127,7 @@ export const HALL_BY_ID: Record<HallId, DiningHall> = Object.fromEntries(
 /** First path/segment that is a dining hall id, if any. */
 export function hallIdFromParts(parts: readonly string[]): HallId | undefined {
   for (const part of parts) {
-    if (part in HALL_BY_ID) return part as HallId;
+    if (Object.hasOwn(HALL_BY_ID, part)) return part as HallId;
   }
 }
 

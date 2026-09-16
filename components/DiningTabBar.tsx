@@ -18,6 +18,7 @@ import { DATE_WINDOW_DAYS, dateCardLabel } from '@/lib/dates';
 import {
   rectsFromWidths,
   DAY_CHROME_PAD,
+  DAY_RADIUS,
   DAY_SLOT_GAP,
   type DaySlotRect,
 } from '@/lib/dayPillLayout';
@@ -29,7 +30,6 @@ import { useDim } from '@/lib/dim';
 import { useTabNav } from '@/lib/tabNav';
 
 const DAY_H = 48;
-const DAY_RADIUS = 14;
 const IDLE_OP = 0.5;
 const MOVE_SPRING = { duration: 340, dampingRatio: 1 };
 const PILL_TOP = DAY_CHROME_PAD;
