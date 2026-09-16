@@ -39,7 +39,7 @@ const DEFAULTS: Prefs = {
   avoidedAllergens: [],
   showCalories: false,
   showDescriptions: true,
-  searchEnabled: false,
+  searchEnabled: true,
   favoritesEnabled: false,
   expandAllDefault: true,
   favorites: [],
