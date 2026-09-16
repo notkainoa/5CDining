@@ -1,11 +1,4 @@
-import {
-  Children,
-  forwardRef,
-  isValidElement,
-  useImperativeHandle,
-  useState,
-  type ReactNode,
-} from 'react';
+import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export interface NativePagerHandle {
@@ -28,50 +21,40 @@ interface Props {
 }
 
 /**
- * Web stand-in for `react-native-pager-view`. No swipe — clicking a hall chip
- * swaps the visible page in memory so the address bar can stay on `/webapp`.
- * Inactive pages stay mounted (hidden) so scroll position, expanded stations,
- * and loaded state survive switching back.
+ * Web fallback so `react-native-pager-view` (native-only) never enters the
+ * web bundle. Unused while _layout.web.tsx exists; renders all children so
+ * the app still paints if that file is ever removed.
  */
 const NativePager = forwardRef<NativePagerHandle, Props>(function NativePager(
   { initialPage, onPageSelected, children },
   ref,
 ) {
-  const [index, setIndex] = useState(initialPage);
-  const pages = Children.toArray(children);
+  const indexRef = useRef(initialPage);
 
   useImperativeHandle(
     ref,
     () => ({
-      setPage: (next) => {
-        setIndex(next);
-        onPageSelected(next);
+      setPage: (index: number) => {
+        if (index !== indexRef.current) {
+          indexRef.current = index;
+          onPageSelected(index);
+        }
       },
-      setPageWithoutAnimation: (next) => {
-        setIndex(next);
-        onPageSelected(next);
+      setPageWithoutAnimation: (index: number) => {
+        if (index !== indexRef.current) {
+          indexRef.current = index;
+          onPageSelected(index);
+        }
       },
     }),
     [onPageSelected],
   );
 
-  return (
-    <View style={styles.fill}>
-      {pages.map((page, i) => (
-        <View
-          key={isValidElement(page) && page.key != null ? page.key : i}
-          style={[styles.fill, i === index ? null : styles.hidden]}
-        >
-          {page}
-        </View>
-      ))}
-    </View>
-  );
+  return <View style={styles.fill}>{children}</View>;
 });
 
 export default NativePager;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  hidden: { display: 'none' },
 });
