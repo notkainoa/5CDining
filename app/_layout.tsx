@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { Theme } from '@/constants/Theme';
 import { SettingsProvider } from '@/lib/settings';
+import { HallRouteProvider } from '@/lib/tabNav';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -54,30 +55,36 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <SettingsProvider>
-      <ThemeProvider value={NAV_THEME}>
-        <Stack screenOptions={{ contentStyle: { backgroundColor: Theme.black } }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="search"
-            options={{
-              headerShown: false,
-              animation: 'default',
-              gestureEnabled: true,
-              fullScreenGestureEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{
-              headerShown: false,
-              animation: 'default',
-              gestureEnabled: true,
-              fullScreenGestureEnabled: true,
-            }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
+      <HallRouteProvider>
+        <ThemeProvider value={NAV_THEME}>
+          <Stack screenOptions={{ contentStyle: { backgroundColor: Theme.black } }}>
+            <Stack.Screen
+              name="(tabs)"
+              options={{ headerShown: false, contentStyle: { backgroundColor: Theme.black } }}
+            />
+            <Stack.Screen
+              name="search"
+              options={{
+                headerShown: false,
+                presentation: 'transparentModal',
+                animation: 'none',
+                gestureEnabled: false,
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: false,
+                animation: 'default',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: true,
+              }}
+            />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+        </ThemeProvider>
+      </HallRouteProvider>
     </SettingsProvider>
   );
 }
