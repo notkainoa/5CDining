@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import mediumWeight from 'expo-symbols/androidWeights/medium';
@@ -15,7 +16,6 @@ import { ALLERGEN_LABELS, ALLERGENS, impliedAllergens } from '@/lib/allergens';
 import { orderedHalls } from '@/lib/diningHalls';
 import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { Theme } from '@/constants/Theme';
-import { useWebStackBack } from '@/lib/webStack';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
 
@@ -28,6 +28,7 @@ const DIET_FILTERS = [
 
 export default function SettingsScreen() {
   const prefs = usePrefs();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [scrollLocked, setScrollLocked] = useState(false);
   const [edgeDir, setEdgeDir] = useState<-1 | 0 | 1>(0);
@@ -56,7 +57,10 @@ export default function SettingsScreen() {
     return () => clearInterval(t);
   }, [edgeDir]);
 
-  const goBack = useWebStackBack();
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
 
   const lockedAllergens = impliedAllergens(prefs);
 
