@@ -1,10 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import NativePager, { type NativePagerHandle } from '@/components/NativePager';
 import DiningTabBar from '@/components/DiningTabBar';
 import HallTabBar from '@/components/HallTabBar';
+import NativePager, { type NativePagerHandle } from '@/components/NativePager';
 import { AppShell, HallChrome } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
@@ -15,16 +14,28 @@ import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
 
 /**
- * Native tab navigator: the pager owns position (real ViewPager2 /
- * UIPageViewController swipes). Swipes and taps never touch the router, so
- * there is no sync loop and no second animation. The route only matters at
- * launch / deep links, which snap the pager without animation.
- * Web uses _layout.web.tsx (expo-router Tabs); the URL-less `/webapp`
- * edition renders FrozenHalls (in-memory pager).
+ * The `/webapp` edition: halls switch in memory via a pager and
+ * settings/search open as overlays, so the address bar never changes.
+ * Always opens on the first hall in the user's order.
  */
-function TabLayoutNative() {
-  const segments = useSegments();
-  const { loaded, hallOrder } = usePrefs();
+export default function FrozenHalls() {
+  return (
+    <DayProvider>
+      <DimProvider>
+        <FrozenHallsGate />
+      </DimProvider>
+    </DayProvider>
+  );
+}
+
+function FrozenHallsGate() {
+  const { loaded } = usePrefs();
+  if (!loaded) return <View style={[styles.fill, styles.boot]} />;
+  return <FrozenHallsInner />;
+}
+
+function FrozenHallsInner() {
+  const { hallOrder } = usePrefs();
   const pagerRef = useRef<NativePagerHandle>(null);
 
   const order: string[] = useMemo(
@@ -32,13 +43,11 @@ function TabLayoutNative() {
     [hallOrder],
   );
 
-  const [initialKey] = useState(() => {
-    const name = segments.at(1) ?? '';
-    return order.includes(name) ? name : order[0];
-  });
-  const [activeKey, setActiveKey] = useState(initialKey);
+  const [activeKey, setActiveKey] = useState(order[0] ?? '');
   const activeKeyRef = useRef(activeKey);
-  activeKeyRef.current = activeKey;
+  useEffect(() => {
+    activeKeyRef.current = activeKey;
+  });
 
   const handlePageSelected = useCallback(
     (i: number) => {
@@ -72,22 +81,12 @@ function TabLayoutNative() {
   );
 
   useEffect(() => {
-    const name = segments.at(1) ?? '';
-    if (!order.includes(name) || name === activeKey) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time external nav sync
-    setActiveKey(name);
-    pagerRef.current?.setPageWithoutAnimation(order.indexOf(name));
-  }, [segments, order, activeKey]);
-
-  useEffect(() => {
     // Only when hall order changes. Including activeKey here would snap the
     // pager on every chip tap and cancel the swipe animation.
     pagerRef.current?.setPageWithoutAnimation(
       Math.max(0, order.indexOf(activeKeyRef.current)),
     );
   }, [order]);
-
-  if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 
   return (
     <TabNavProvider activeKey={activeKey} navigate={navigate}>
@@ -97,7 +96,7 @@ function TabLayoutNative() {
           <HallTabBar />
           <NativePager
             ref={pagerRef}
-            initialPage={Math.max(0, order.indexOf(initialKey))}
+            initialPage={Math.max(0, order.indexOf(activeKey))}
             onPageSelected={handlePageSelected}
           >
             {pages}
@@ -106,16 +105,6 @@ function TabLayoutNative() {
         <DiningTabBar />
       </AppShell>
     </TabNavProvider>
-  );
-}
-
-export default function TabLayout() {
-  return (
-    <DayProvider>
-      <DimProvider>
-        <TabLayoutNative />
-      </DimProvider>
-    </DayProvider>
   );
 }
 
