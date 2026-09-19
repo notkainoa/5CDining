@@ -5,41 +5,118 @@
     "scheme": "dining5c",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon_main.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "me.kainoa.dining5c",
       "buildNumber": "1",
+      "icon": "./assets/images/icon_main.png",
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
+      "package": "me.kainoa.dining5c",
+      "icon": "./assets/images/icon_main.png",
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon_main.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon_main.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-awesome-app-icon",
+        {
+          "icons": {
+            "plain": {
+              "ios": {
+                "light": "./assets/images/icon_plain.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_plain.png"
+              }
+            },
+            "anthropic": {
+              "ios": {
+                "light": "./assets/images/icon_anthropic.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_anthropic.png"
+              }
+            },
+            "halls": {
+              "ios": {
+                "light": "./assets/images/icon_halls.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_halls.png"
+              }
+            },
+            "book": {
+              "ios": {
+                "light": "./assets/images/icon_book.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_book.png"
+              }
+            },
+            "spark": {
+              "ios": {
+                "light": "./assets/images/icon_spark.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_spark.png"
+              }
+            },
+            "bowl": {
+              "ios": {
+                "light": "./assets/images/icon_bowl.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_bowl.png"
+              }
+            },
+            "loc": {
+              "ios": {
+                "light": "./assets/images/icon_loc.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_loc.png"
+              }
+            },
+            "stack": {
+              "ios": {
+                "light": "./assets/images/icon_stack.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_stack.png"
+              }
+            },
+            "window": {
+              "ios": {
+                "light": "./assets/images/icon_window.png"
+              },
+              "android": {
+                "image": "./assets/images/icon_window.png"
+              }
+            }
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
