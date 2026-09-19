@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +19,13 @@ import HallOrderList from '@/components/HallOrderList';
 import { CHROME_BOTTOM_RADIUS, CHROME_INSET, CHROME_RADIUS } from '@/components/HallChrome';
 import { ALLERGEN_LABELS, ALLERGENS, impliedAllergens } from '@/lib/allergens';
 import { orderedHalls } from '@/lib/diningHalls';
+import {
+  APP_ICONS,
+  getSelectedAppIcon,
+  selectAppIcon,
+  supportsAppIconSelection,
+  type AppIconId,
+} from '@/lib/appIcons';
 import { SEARCH_FEATURES, usePrefs } from '@/lib/settings';
 import { Theme } from '@/constants/Theme';
 
@@ -226,6 +242,8 @@ export default function SettingsScreen() {
             />
           </View>
 
+          <AppIconPicker />
+
           <View style={styles.card}>
             <Text style={styles.section}>About</Text>
             <Text style={styles.hint}>
@@ -242,6 +260,72 @@ export default function SettingsScreen() {
           </View>
         </ScrollView>
       </View>
+    </View>
+  );
+}
+
+function AppIconPicker() {
+  const [supported] = useState(() => supportsAppIconSelection());
+  const [selected, setSelected] = useState<AppIconId>(() =>
+    supported ? getSelectedAppIcon() : 'main',
+  );
+  const [changing, setChanging] = useState<AppIconId | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const chooseIcon = async (id: AppIconId) => {
+    if (!supported || changing || id === selected) return;
+    setChanging(id);
+    setError(null);
+    try {
+      await selectAppIcon(id);
+      setSelected(id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The app icon could not be changed.');
+    } finally {
+      setChanging(null);
+    }
+  };
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.section}>App icon</Text>
+      <Text style={styles.hint}>
+        {supported
+          ? 'Choose the icon shown on your Home Screen.'
+          : 'Preview the icons here. Open an installed app build to choose one.'}
+      </Text>
+      <View style={styles.iconGrid}>
+        {APP_ICONS.map((icon) => {
+          const isSelected = icon.id === selected;
+          const isChanging = icon.id === changing;
+          return (
+            <Pressable
+              key={icon.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${icon.label} app icon`}
+              accessibilityState={{ selected: isSelected, disabled: !supported || !!changing }}
+              disabled={!supported || !!changing}
+              onPress={() => void chooseIcon(icon.id)}
+              style={({ pressed }) => [styles.iconChoice, pressed && styles.iconChoicePressed]}
+            >
+              <View style={[styles.iconPreview, isSelected && styles.iconPreviewSelected]}>
+                <Image source={icon.source} resizeMode="cover" style={styles.iconImage} />
+                {isSelected ? (
+                  <View style={styles.iconCheck}>
+                    <Text style={styles.iconCheckText}>✓</Text>
+                  </View>
+                ) : null}
+                {isChanging ? (
+                  <View style={styles.iconLoading}>
+                    <ActivityIndicator color={Theme.white} />
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {error ? <Text style={styles.iconError}>{error}</Text> : null}
     </View>
   );
 }
@@ -378,6 +462,71 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Theme.black,
     marginTop: 4,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingTop: 4,
+  },
+  iconChoice: {
+    width: '30%',
+    maxWidth: 92,
+    aspectRatio: 1,
+    alignItems: 'center',
+  },
+  iconChoicePressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.98 }],
+  },
+  iconPreview: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 21,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    padding: 2,
+  },
+  iconPreviewSelected: {
+    borderColor: Theme.black,
+  },
+  iconImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  iconCheck: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.black,
+    borderWidth: 2,
+    borderColor: Theme.white,
+  },
+  iconCheckText: {
+    color: Theme.white,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  iconLoading: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    bottom: 2,
+    left: 2,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.overlay,
+  },
+  iconError: {
+    color: '#b42318',
+    fontSize: 12,
   },
   row: {
     flexDirection: 'row',
