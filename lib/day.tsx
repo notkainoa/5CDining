@@ -1,8 +1,18 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AppState } from 'react-native';
-import type { Meal } from './api';
-import { nowMinutesInLA, sameDay, weekDates } from './dates';
+import { nowMinutesInLA, weekDates } from './dates';
+import { reconcileDayWindow } from './dayWindow';
 import { invalidateMenuCache } from './menuCache';
+import { normalizeMealName, shouldClearMealSelection } from './mealSelection';
 
 interface DayCtx {
   days: Date[];
@@ -26,19 +36,6 @@ const DayContext = createContext<DayCtx>({
   nowMinutes: 0,
 });
 
-/** Meal identity across halls: case/whitespace-insensitive name. */
-export function normalizeMealName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-/**
- * Identity used when the user picks a meal, so Hoch `DINNER` and Collins `Dinner`
- * stay aligned, and `Continental Breakfast` counts as breakfast.
- */
-export function mealKey(meal: Meal): string {
-  return meal.period ?? normalizeMealName(meal.name);
-}
-
 /** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
   const [days, setDays] = useState(() => weekDates());
@@ -49,26 +46,26 @@ export function DayProvider({ children }: { children: ReactNode }) {
   const daysRef = useRef(days);
 
   useEffect(() => {
-    selectedRef.current = selected;
-    daysRef.current = days;
-  }, [selected, days]);
-
-  useEffect(() => {
-    const syncWindow = (opts: { fromResume: boolean }) => {
+    const syncWindow = () => {
       const nextDays = weekDates();
       const prevDays = daysRef.current;
-      let nextSelected = selectedRef.current;
-      if (!sameDay(nextDays[0], prevDays[0])) {
+      const update = reconcileDayWindow(prevDays, selectedRef.current, nextDays);
+      if (update.windowShifted) {
         invalidateMenuCache();
-        const prevDate = prevDays[nextSelected];
-        const kept = prevDate ? nextDays.findIndex((d) => sameDay(d, prevDate)) : 0;
-        nextSelected = kept >= 0 ? kept : 0;
+        daysRef.current = nextDays;
+        selectedRef.current = update.selected;
         setDays(nextDays);
-        setSelected(nextSelected);
-        if (nextSelected === 0) setMealName(null);
+        setSelected(update.selected);
       }
       setNowMinutes(nowMinutesInLA());
-      if (opts.fromResume && nextSelected === 0) setMealName(null);
+      if (
+        shouldClearMealSelection({
+          windowShifted: update.windowShifted,
+          selectedDateKept: update.selectedDateKept,
+        })
+      ) {
+        setMealName(null);
+      }
     };
 
     let leftForBackground = false;
@@ -79,13 +76,23 @@ export function DayProvider({ children }: { children: ReactNode }) {
       }
       if (next !== 'active' || !leftForBackground) return;
       leftForBackground = false;
-      syncWindow({ fromResume: true });
+      syncWindow();
     });
-    const tick = setInterval(() => syncWindow({ fromResume: false }), 60_000);
+    const tick = setInterval(syncWindow, 60_000);
     return () => {
       sub.remove();
       clearInterval(tick);
     };
+  }, []);
+
+  const selectMealName = useCallback((name: string) => {
+    setMealName(normalizeMealName(name));
+  }, []);
+
+  const selectDate = useCallback((index: number) => {
+    if (index < 0 || index >= daysRef.current.length) return;
+    selectedRef.current = index;
+    setSelected(index);
   }, []);
 
   const value = useMemo<DayCtx>(
@@ -93,12 +100,12 @@ export function DayProvider({ children }: { children: ReactNode }) {
       days,
       selected,
       date: days[selected] ?? days[0],
-      selectDate: setSelected,
+      selectDate,
       mealName,
-      selectMealName: (name: string) => setMealName(normalizeMealName(name)),
+      selectMealName,
       nowMinutes,
     }),
-    [days, selected, mealName, nowMinutes],
+    [days, selected, selectDate, mealName, selectMealName, nowMinutes],
   );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }

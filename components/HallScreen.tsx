@@ -12,6 +12,7 @@ import {
   isGlutenFree,
   matchesDiet,
   menusHaveFlag,
+  formatYMDForApi,
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
@@ -23,13 +24,15 @@ import {
 } from '@/lib/api';
 import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
-import { mealKey, useDay } from '@/lib/day';
+import { useDay } from '@/lib/day';
+import { initialMealSelection, mealIndexForSelection, mealKey } from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadHallMenu } from '@/lib/menuCache';
 import { usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
+import { useTabNav } from '@/lib/tabNav';
 import DietBadge from '@/components/DietBadge';
 import HeartButton from '@/components/HeartButton';
 import MealPicker from '@/components/MealPicker';
@@ -39,6 +42,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
   const { selected, date, mealName, selectMealName, nowMinutes } = useDay();
   const { arm, disarm } = useDim();
+  const { activeKey } = useTabNav();
   const { join } = useHallBottomJoin();
   const { expandAllDefault } = usePrefs();
 
@@ -58,21 +62,29 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     [meals, selected, nowMinutes],
   );
 
-  const mealIndex = useMemo(() => {
-    if (meals.length === 0) return 0;
-    if (mealName) {
-      const j = meals.findIndex((m) => mealKey(m) === mealName);
-      if (j >= 0) return j;
-    }
-    return autoIndex;
-  }, [meals, mealName, autoIndex]);
+  const mealIndex = useMemo(
+    () => mealIndexForSelection(meals, mealName, autoIndex),
+    [meals, mealName, autoIndex],
+  );
+
+  useEffect(() => {
+    const initialSelection = initialMealSelection({
+      meals,
+      selectedMeal: mealName,
+      autoIndex,
+      isActiveHall: activeKey === hallId,
+      isCurrentMenu: menu?.date === formatYMDForApi(date),
+    });
+    if (initialSelection && initialSelection !== mealName) selectMealName(initialSelection);
+  }, [activeKey, hallId, menu?.date, date, meals, mealName, autoIndex, selectMealName]);
 
   const expandAllRef = useRef(expandAllDefault);
-  expandAllRef.current = expandAllDefault;
+  useEffect(() => {
+    expandAllRef.current = expandAllDefault;
+  }, [expandAllDefault]);
   const stationCount = meals[mealIndex]?.stations.length ?? 0;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset open stations for a new menu
     setOpenStations(
       expandAllRef.current && stationCount > 0
         ? Array.from({ length: stationCount }, (_, i) => i)
