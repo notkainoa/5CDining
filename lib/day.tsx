@@ -1,8 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AppState } from 'react-native';
-import type { Meal } from './api';
-import { nowMinutesInLA, sameDay, weekDates } from './dates';
+import { nowMinutesInLA, reconcileDayWindow, weekDates } from './dates';
 import { invalidateMenuCache } from './menuCache';
+import { normalizeMealName, shouldClearMealSelection } from './mealSelection';
 
 interface DayCtx {
   days: Date[];
@@ -11,7 +20,9 @@ interface DayCtx {
   selectDate: (i: number) => void;
   /** Shared meal slot across halls: API `period` when present, else the normalized school name. */
   mealName: string | null;
+  mealSelectionIsManual: boolean;
   selectMealName: (name: string) => void;
+  selectAutomaticMealName: (name: string) => void;
   /** Claremont minutes after midnight. Refreshed when the app is opened. */
   nowMinutes: number;
 }
@@ -22,53 +33,51 @@ const DayContext = createContext<DayCtx>({
   date: new Date(),
   selectDate: () => {},
   mealName: null,
+  mealSelectionIsManual: false,
   selectMealName: () => {},
+  selectAutomaticMealName: () => {},
   nowMinutes: 0,
 });
 
-/** Meal identity across halls: case/whitespace-insensitive name. */
-export function normalizeMealName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+interface MealSelection {
+  name: string | null;
+  manual: boolean;
 }
 
-/**
- * Identity used when the user picks a meal, so Hoch `DINNER` and Collins `Dinner`
- * stay aligned, and `Continental Breakfast` counts as breakfast.
- */
-export function mealKey(meal: Meal): string {
-  return meal.period ?? normalizeMealName(meal.name);
-}
+const EMPTY_MEAL_SELECTION: MealSelection = { name: null, manual: false };
 
 /** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
   const [days, setDays] = useState(() => weekDates());
   const [selected, setSelected] = useState(0);
-  const [mealName, setMealName] = useState<string | null>(null);
+  const [mealSelection, setMealSelection] = useState<MealSelection>(EMPTY_MEAL_SELECTION);
   const [nowMinutes, setNowMinutes] = useState(nowMinutesInLA);
   const selectedRef = useRef(selected);
   const daysRef = useRef(days);
+  const mealSelectionRef = useRef(mealSelection);
 
   useEffect(() => {
-    selectedRef.current = selected;
-    daysRef.current = days;
-  }, [selected, days]);
-
-  useEffect(() => {
-    const syncWindow = (opts: { fromResume: boolean }) => {
+    const syncWindow = () => {
       const nextDays = weekDates();
       const prevDays = daysRef.current;
-      let nextSelected = selectedRef.current;
-      if (!sameDay(nextDays[0], prevDays[0])) {
+      const update = reconcileDayWindow(prevDays, selectedRef.current, nextDays);
+      if (update.windowShifted) {
         invalidateMenuCache();
-        const prevDate = prevDays[nextSelected];
-        const kept = prevDate ? nextDays.findIndex((d) => sameDay(d, prevDate)) : 0;
-        nextSelected = kept >= 0 ? kept : 0;
+        daysRef.current = nextDays;
+        selectedRef.current = update.selected;
         setDays(nextDays);
-        setSelected(nextSelected);
-        if (nextSelected === 0) setMealName(null);
+        setSelected(update.selected);
       }
       setNowMinutes(nowMinutesInLA());
-      if (opts.fromResume && nextSelected === 0) setMealName(null);
+      if (
+        shouldClearMealSelection({
+          windowShifted: update.windowShifted,
+          selectedDateKept: update.selectedDateKept,
+        })
+      ) {
+        mealSelectionRef.current = EMPTY_MEAL_SELECTION;
+        setMealSelection(EMPTY_MEAL_SELECTION);
+      }
     };
 
     let leftForBackground = false;
@@ -79,13 +88,39 @@ export function DayProvider({ children }: { children: ReactNode }) {
       }
       if (next !== 'active' || !leftForBackground) return;
       leftForBackground = false;
-      syncWindow({ fromResume: true });
+      syncWindow();
     });
-    const tick = setInterval(() => syncWindow({ fromResume: false }), 60_000);
+    const tick = setInterval(syncWindow, 60_000);
     return () => {
       sub.remove();
       clearInterval(tick);
     };
+  }, []);
+
+  const selectMealName = useCallback((name: string) => {
+    const next = { name: normalizeMealName(name), manual: true };
+    mealSelectionRef.current = next;
+    setMealSelection(next);
+  }, []);
+
+  const selectAutomaticMealName = useCallback((name: string) => {
+    const current = mealSelectionRef.current;
+    if (current.manual) return;
+    const normalized = normalizeMealName(name);
+    if (current.name === normalized) return;
+    const next = { name: normalized, manual: false };
+    mealSelectionRef.current = next;
+    setMealSelection(next);
+  }, []);
+
+  const selectDate = useCallback((index: number) => {
+    if (index < 0 || index >= daysRef.current.length) return;
+    if (index !== selectedRef.current && !mealSelectionRef.current.manual) {
+      mealSelectionRef.current = EMPTY_MEAL_SELECTION;
+      setMealSelection(EMPTY_MEAL_SELECTION);
+    }
+    selectedRef.current = index;
+    setSelected(index);
   }, []);
 
   const value = useMemo<DayCtx>(
@@ -93,12 +128,22 @@ export function DayProvider({ children }: { children: ReactNode }) {
       days,
       selected,
       date: days[selected] ?? days[0],
-      selectDate: setSelected,
-      mealName,
-      selectMealName: (name: string) => setMealName(normalizeMealName(name)),
+      selectDate,
+      mealName: mealSelection.name,
+      mealSelectionIsManual: mealSelection.manual,
+      selectMealName,
+      selectAutomaticMealName,
       nowMinutes,
     }),
-    [days, selected, mealName, nowMinutes],
+    [
+      days,
+      selected,
+      selectDate,
+      mealSelection,
+      selectMealName,
+      selectAutomaticMealName,
+      nowMinutes,
+    ],
   );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }

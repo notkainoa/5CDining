@@ -238,18 +238,37 @@ function toMinutes(t?: string): number | null {
 }
 
 /**
- * Pick the meal tab to open: the one being served now, else the next
- * upcoming one, else the first. `nowMinutes` is minutes after midnight.
+ * Pick the meal tab to open: the one being served now, else the nearest
+ * upcoming one, else the most recent meal. Handles unsorted meals and service
+ * windows that cross midnight. `nowMinutes` is minutes after midnight.
  */
 export function pickCurrentMeal(meals: Meal[], nowMinutes: number): number {
+  let nextIndex = -1;
+  let nextStart = Number.POSITIVE_INFINITY;
+  let previousIndex = -1;
+  let previousStart = Number.NEGATIVE_INFINITY;
+
   for (let i = 0; i < meals.length; i++) {
     const s = toMinutes(meals[i].startTime);
     const e = toMinutes(meals[i].endTime);
-    if (s !== null && e !== null && nowMinutes >= s && nowMinutes < e) return i;
+    if (s === null) continue;
+
+    const crossesMidnight = e !== null && e < s;
+    const isActive =
+      e !== null &&
+      (crossesMidnight ? nowMinutes >= s || nowMinutes < e : nowMinutes >= s && nowMinutes < e);
+    if (isActive) return i;
+
+    if (s > nowMinutes && s < nextStart) {
+      nextStart = s;
+      nextIndex = i;
+    } else if (s <= nowMinutes && s > previousStart) {
+      previousStart = s;
+      previousIndex = i;
+    }
   }
-  for (let i = 0; i < meals.length; i++) {
-    const s = toMinutes(meals[i].startTime);
-    if (s !== null && nowMinutes < s) return i;
-  }
+
+  if (nextIndex >= 0) return nextIndex;
+  if (previousIndex >= 0) return previousIndex;
   return 0;
 }
