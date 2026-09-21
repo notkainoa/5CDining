@@ -38,20 +38,35 @@ export function mealIndexForSelection(
   return autoIndex;
 }
 
-export function initialMealSelection({
+export function automaticMealSelection({
   meals,
   selectedMeal,
   autoIndex,
+  autoIndexChanged,
+  selectionIsManual,
   isActiveHall,
   isCurrentMenu,
+  isToday,
 }: {
   meals: Meal[];
   selectedMeal: string | null;
   autoIndex: number;
+  autoIndexChanged: boolean;
+  selectionIsManual: boolean;
   isActiveHall: boolean;
   isCurrentMenu: boolean;
+  isToday: boolean;
 }): string | null {
-  if (selectedMeal || !isActiveHall || !isCurrentMenu || meals.length === 0) return selectedMeal;
+  if (
+    selectionIsManual ||
+    !isActiveHall ||
+    !isCurrentMenu ||
+    !isToday ||
+    meals.length === 0 ||
+    (selectedMeal && !autoIndexChanged)
+  ) {
+    return selectedMeal;
+  }
   return mealKey(meals[autoIndex] ?? meals[0]);
 }
 

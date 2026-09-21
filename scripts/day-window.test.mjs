@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { reconcileDayWindow } from '../lib/dayWindow.ts';
+import { reconcileDayWindow } from '../lib/dates.ts';
 
 const day = (date) => new Date(2026, 8, date);
 

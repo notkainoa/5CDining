@@ -25,7 +25,7 @@ import {
 import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { useDay } from '@/lib/day';
-import { initialMealSelection, mealIndexForSelection, mealKey } from '@/lib/mealSelection';
+import { automaticMealSelection, mealIndexForSelection, mealKey } from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
@@ -40,7 +40,15 @@ import SchoolLogo from '@/components/SchoolLogo';
 
 export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
-  const { selected, date, mealName, selectMealName, nowMinutes } = useDay();
+  const {
+    selected,
+    date,
+    mealName,
+    mealSelectionIsManual,
+    selectMealName,
+    selectAutomaticMealName,
+    nowMinutes,
+  } = useDay();
   const { arm, disarm } = useDim();
   const { activeKey } = useTabNav();
   const { join } = useHallBottomJoin();
@@ -61,6 +69,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
     [meals, selected, nowMinutes],
   );
+  const previousAutoIndex = useRef(autoIndex);
 
   const mealIndex = useMemo(
     () => mealIndexForSelection(meals, mealName, autoIndex),
@@ -68,15 +77,33 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   );
 
   useEffect(() => {
-    const initialSelection = initialMealSelection({
+    const autoIndexChanged = previousAutoIndex.current !== autoIndex;
+    previousAutoIndex.current = autoIndex;
+    const automaticSelection = automaticMealSelection({
       meals,
       selectedMeal: mealName,
       autoIndex,
+      autoIndexChanged,
+      selectionIsManual: mealSelectionIsManual,
       isActiveHall: activeKey === hallId,
       isCurrentMenu: menu?.date === formatYMDForApi(date),
+      isToday: selected === 0,
     });
-    if (initialSelection && initialSelection !== mealName) selectMealName(initialSelection);
-  }, [activeKey, hallId, menu?.date, date, meals, mealName, autoIndex, selectMealName]);
+    if (automaticSelection && automaticSelection !== mealName) {
+      selectAutomaticMealName(automaticSelection);
+    }
+  }, [
+    activeKey,
+    hallId,
+    menu?.date,
+    date,
+    meals,
+    mealName,
+    mealSelectionIsManual,
+    autoIndex,
+    selected,
+    selectAutomaticMealName,
+  ]);
 
   const expandAllRef = useRef(expandAllDefault);
   useEffect(() => {
