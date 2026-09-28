@@ -12,6 +12,7 @@ import {
   isGlutenFree,
   matchesDiet,
   menusHaveFlag,
+  formatYMDForApi,
   mealHoursCompact,
   mergeStations,
   pickCurrentMeal,
@@ -23,13 +24,21 @@ import {
 } from '@/lib/api';
 import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
-import { mealKey, useDay } from '@/lib/day';
+import { useDay } from '@/lib/day';
+import {
+  automaticMealSelection,
+  mealIndexForSelection,
+  mealSelectionIntent,
+  sameMealSelection,
+  type AutomaticMealObservation,
+} from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { loadHallMenu } from '@/lib/menuCache';
 import { usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
+import { useTabNav } from '@/lib/tabNav';
 import DietBadge from '@/components/DietBadge';
 import HeartButton from '@/components/HeartButton';
 import MealPicker from '@/components/MealPicker';
@@ -37,8 +46,17 @@ import SchoolLogo from '@/components/SchoolLogo';
 
 export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
-  const { selected, date, mealName, selectMealName, nowMinutes } = useDay();
+  const {
+    selected,
+    date,
+    mealSelection,
+    mealSelectionIsManual,
+    selectMeal: selectMealIntent,
+    selectAutomaticMeal,
+    nowMinutes,
+  } = useDay();
   const { arm, disarm } = useDim();
+  const { activeKey } = useTabNav();
   const { join } = useHallBottomJoin();
   const { expandAllDefault } = usePrefs();
 
@@ -57,22 +75,44 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
     [meals, selected, nowMinutes],
   );
+  const mealIndex = useMemo(
+    () => mealIndexForSelection(meals, mealSelection, autoIndex),
+    [meals, mealSelection, autoIndex],
+  );
 
-  const mealIndex = useMemo(() => {
-    if (meals.length === 0) return 0;
-    if (mealName) {
-      const j = meals.findIndex((m) => mealKey(m) === mealName);
-      if (j >= 0) return j;
+  const selectedDate = formatYMDForApi(date);
+  const automaticObservation = useMemo<AutomaticMealObservation>(
+    () => ({
+      service: meals[autoIndex] ? mealSelectionIntent(meals[autoIndex]) : null,
+      menuDate: menu?.date ?? null,
+      selectedDate,
+      isActiveHall: activeKey === hallId,
+      isToday: selected === 0,
+    }),
+    [meals, autoIndex, menu?.date, selectedDate, activeKey, hallId, selected],
+  );
+  const previousAutomaticObservation = useRef<AutomaticMealObservation | null>(null);
+
+  useEffect(() => {
+    const automaticSelection = automaticMealSelection({
+      previous: previousAutomaticObservation.current,
+      current: automaticObservation,
+      selectedMeal: mealSelection,
+      selectionIsManual: mealSelectionIsManual,
+    });
+    previousAutomaticObservation.current = automaticObservation;
+    if (automaticSelection && !sameMealSelection(automaticSelection, mealSelection)) {
+      selectAutomaticMeal(automaticSelection);
     }
-    return autoIndex;
-  }, [meals, mealName, autoIndex]);
+  }, [automaticObservation, mealSelection, mealSelectionIsManual, selectAutomaticMeal]);
 
   const expandAllRef = useRef(expandAllDefault);
-  expandAllRef.current = expandAllDefault;
+  useEffect(() => {
+    expandAllRef.current = expandAllDefault;
+  }, [expandAllDefault]);
   const stationCount = meals[mealIndex]?.stations.length ?? 0;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset open stations for a new menu
     setOpenStations(
       expandAllRef.current && stationCount > 0
         ? Array.from({ length: stationCount }, (_, i) => i)
@@ -123,7 +163,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
   const selectMeal = (i: number) => {
     const m = meals[i];
-    if (m) selectMealName(mealKey(m));
+    if (m) selectMealIntent(mealSelectionIntent(m));
     closePicker();
   };
 
@@ -312,9 +352,9 @@ function MealBody({
       plantBasedOnly: prefs.plantBasedOnly,
       avoidedAllergens: canFilterAllergens ? avoidedAllergens : [],
     });
+  const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
-  const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
   const matchCount = filtersActive
     ? meal.stations.reduce((n, st) => n + st.items.filter(isMatch).length, 0)
     : dishCount;
@@ -323,6 +363,17 @@ function MealBody({
     setOpenStations((prev: number[]) =>
       prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i],
     );
+
+  if (dishCount === 0) {
+    return (
+      <View style={styles.emptyMeal}>
+        <Text style={styles.stateTitle}>No dishes published</Text>
+        <Text style={styles.stateText}>
+          This hall hasn&apos;t posted a dish list for this meal.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.mealBody}>
@@ -555,6 +606,7 @@ const styles = StyleSheet.create({
   retry: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: Theme.white, fontWeight: '700' },
   mealBody: { gap: 4 },
+  emptyMeal: { alignItems: 'center', paddingVertical: 28, gap: 8 },
   bulkRow: {
     flexDirection: 'row',
     alignItems: 'center',

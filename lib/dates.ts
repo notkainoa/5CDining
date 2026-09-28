@@ -44,6 +44,31 @@ export function sameDay(a: Date, b: Date): boolean {
   );
 }
 
+export interface DayWindowUpdate {
+  windowShifted: boolean;
+  selected: number;
+  selectedDateKept: boolean;
+}
+
+export function reconcileDayWindow(
+  previousDays: Date[],
+  previousSelected: number,
+  nextDays: Date[],
+): DayWindowUpdate {
+  const windowShifted = !sameDay(nextDays[0], previousDays[0]);
+  if (!windowShifted) {
+    return { windowShifted: false, selected: previousSelected, selectedDateKept: true };
+  }
+
+  const previousDate = previousDays[previousSelected];
+  const kept = previousDate ? nextDays.findIndex((date) => sameDay(date, previousDate)) : -1;
+  return {
+    windowShifted: true,
+    selected: kept >= 0 ? kept : 0,
+    selectedDateKept: kept >= 0,
+  };
+}
+
 /** Current time in Claremont as minutes after midnight (for picking the live meal). */
 export function nowMinutesInLA(now: Date = new Date()): number {
   const parts = new Intl.DateTimeFormat('en-US', {

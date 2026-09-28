@@ -1,4 +1,12 @@
-import { createContext, useContext, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/Theme';
@@ -26,7 +34,11 @@ export const CHROME_JOIN_EAR = CHROME_RADIUS;
  * Fillet and convex corner that meet when a tab sits `d` in from a card edge.
  * Both scale together so they stay tangent; they do not snap to 0/max.
  */
-export function joinRadii(d: number, earMax: number, cornerMax: number): { ear: number; corner: number } {
+export function joinRadii(
+  d: number,
+  earMax: number,
+  cornerMax: number,
+): { ear: number; corner: number } {
   if (d <= 0.5) return { ear: 0, corner: 0 };
   const span = earMax + cornerMax;
   if (span <= 0) return { ear: 0, corner: 0 };
@@ -79,10 +91,7 @@ export function HallChrome({ children }: { children: ReactNode }) {
   const { join } = useHallBottomJoin();
   return (
     <View
-      style={[
-        styles.hall,
-        { borderBottomLeftRadius: join.bl, borderBottomRightRadius: join.br },
-      ]}
+      style={[styles.hall, { borderBottomLeftRadius: join.bl, borderBottomRightRadius: join.br }]}
     >
       {children}
     </View>
