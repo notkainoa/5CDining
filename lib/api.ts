@@ -237,37 +237,77 @@ function toMinutes(t?: string): number | null {
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
+function mealTieKey(meal: Meal): string {
+  const name = meal.name.trim();
+  return `${name.toLowerCase()}\u0000${name}\u0000${meal.startTime ?? ''}\u0000${meal.endTime ?? ''}`;
+}
+
 /**
- * Pick the meal tab to open: the one being served now, else the nearest
- * upcoming one, else the most recent meal. Handles unsorted meals and service
- * windows that cross midnight. `nowMinutes` is minutes after midnight.
+ * Pick the meal tab to open: the latest-starting service active now, else the
+ * nearest upcoming one, else the most recent meal. Handles unsorted meals and
+ * service windows that cross midnight. `nowMinutes` is minutes after midnight.
  */
 export function pickCurrentMeal(meals: Meal[], nowMinutes: number): number {
+  let activeIndex = -1;
+  let activeStart = Number.NEGATIVE_INFINITY;
+  let activeTieKey = '';
   let nextIndex = -1;
   let nextStart = Number.POSITIVE_INFINITY;
+  let nextTieKey = '';
   let previousIndex = -1;
   let previousStart = Number.NEGATIVE_INFINITY;
+  let previousTieKey = '';
 
   for (let i = 0; i < meals.length; i++) {
-    const s = toMinutes(meals[i].startTime);
-    const e = toMinutes(meals[i].endTime);
-    if (s === null) continue;
+    const startMinutes = toMinutes(meals[i].startTime);
+    const endMinutes = toMinutes(meals[i].endTime);
+    if (startMinutes === null) continue;
 
-    const crossesMidnight = e !== null && e < s;
+    const crossesMidnight = endMinutes !== null && endMinutes < startMinutes;
     const isActive =
-      e !== null &&
-      (crossesMidnight ? nowMinutes >= s || nowMinutes < e : nowMinutes >= s && nowMinutes < e);
-    if (isActive) return i;
+      endMinutes !== null &&
+      (crossesMidnight
+        ? nowMinutes >= startMinutes || nowMinutes < endMinutes
+        : nowMinutes >= startMinutes && nowMinutes < endMinutes);
+    const tieKey = mealTieKey(meals[i]);
+    if (isActive) {
+      // After midnight, an overnight service began on the prior day. Ranking on
+      // that relative timeline ensures a newly started service wins an overlap.
+      const relativeStart =
+        crossesMidnight && endMinutes !== null && nowMinutes < endMinutes
+          ? startMinutes - 24 * 60
+          : startMinutes;
+      if (
+        relativeStart > activeStart ||
+        (relativeStart === activeStart && (activeIndex < 0 || tieKey < activeTieKey))
+      ) {
+        activeStart = relativeStart;
+        activeTieKey = tieKey;
+        activeIndex = i;
+      }
+      continue;
+    }
 
-    if (s > nowMinutes && s < nextStart) {
-      nextStart = s;
-      nextIndex = i;
-    } else if (s <= nowMinutes && s > previousStart) {
-      previousStart = s;
+    if (startMinutes > nowMinutes) {
+      if (
+        startMinutes < nextStart ||
+        (startMinutes === nextStart && (nextIndex < 0 || tieKey < nextTieKey))
+      ) {
+        nextStart = startMinutes;
+        nextTieKey = tieKey;
+        nextIndex = i;
+      }
+    } else if (
+      startMinutes > previousStart ||
+      (startMinutes === previousStart && (previousIndex < 0 || tieKey < previousTieKey))
+    ) {
+      previousStart = startMinutes;
+      previousTieKey = tieKey;
       previousIndex = i;
     }
   }
 
+  if (activeIndex >= 0) return activeIndex;
   if (nextIndex >= 0) return nextIndex;
   if (previousIndex >= 0) return previousIndex;
   return 0;

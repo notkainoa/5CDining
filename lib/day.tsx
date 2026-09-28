@@ -11,18 +11,22 @@ import {
 import { AppState } from 'react-native';
 import { nowMinutesInLA, reconcileDayWindow, weekDates } from './dates';
 import { invalidateMenuCache } from './menuCache';
-import { normalizeMealName, shouldClearMealSelection } from './mealSelection';
+import {
+  sameMealSelection,
+  shouldClearMealSelection,
+  type MealSelectionIntent,
+} from './mealSelection';
 
 interface DayCtx {
   days: Date[];
   selected: number;
   date: Date;
   selectDate: (i: number) => void;
-  /** Shared meal slot across halls: API `period` when present, else the normalized school name. */
-  mealName: string | null;
+  /** Shared service intent: exact published name plus its cross-hall period. */
+  mealSelection: MealSelectionIntent | null;
   mealSelectionIsManual: boolean;
-  selectMealName: (name: string) => void;
-  selectAutomaticMealName: (name: string) => void;
+  selectMeal: (selection: MealSelectionIntent) => void;
+  selectAutomaticMeal: (selection: MealSelectionIntent) => void;
   /** Claremont minutes after midnight. Refreshed when the app is opened. */
   nowMinutes: number;
 }
@@ -32,19 +36,19 @@ const DayContext = createContext<DayCtx>({
   selected: 0,
   date: new Date(),
   selectDate: () => {},
-  mealName: null,
+  mealSelection: null,
   mealSelectionIsManual: false,
-  selectMealName: () => {},
-  selectAutomaticMealName: () => {},
+  selectMeal: () => {},
+  selectAutomaticMeal: () => {},
   nowMinutes: 0,
 });
 
 interface MealSelection {
-  name: string | null;
+  selection: MealSelectionIntent | null;
   manual: boolean;
 }
 
-const EMPTY_MEAL_SELECTION: MealSelection = { name: null, manual: false };
+const EMPTY_MEAL_SELECTION: MealSelection = { selection: null, manual: false };
 
 /** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
@@ -97,18 +101,17 @@ export function DayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const selectMealName = useCallback((name: string) => {
-    const next = { name: normalizeMealName(name), manual: true };
+  const selectMeal = useCallback((selection: MealSelectionIntent) => {
+    const next = { selection, manual: true };
     mealSelectionRef.current = next;
     setMealSelection(next);
   }, []);
 
-  const selectAutomaticMealName = useCallback((name: string) => {
+  const selectAutomaticMeal = useCallback((selection: MealSelectionIntent) => {
     const current = mealSelectionRef.current;
     if (current.manual) return;
-    const normalized = normalizeMealName(name);
-    if (current.name === normalized) return;
-    const next = { name: normalized, manual: false };
+    if (sameMealSelection(current.selection, selection)) return;
+    const next = { selection, manual: false };
     mealSelectionRef.current = next;
     setMealSelection(next);
   }, []);
@@ -129,21 +132,13 @@ export function DayProvider({ children }: { children: ReactNode }) {
       selected,
       date: days[selected] ?? days[0],
       selectDate,
-      mealName: mealSelection.name,
+      mealSelection: mealSelection.selection,
       mealSelectionIsManual: mealSelection.manual,
-      selectMealName,
-      selectAutomaticMealName,
+      selectMeal,
+      selectAutomaticMeal,
       nowMinutes,
     }),
-    [
-      days,
-      selected,
-      selectDate,
-      mealSelection,
-      selectMealName,
-      selectAutomaticMealName,
-      nowMinutes,
-    ],
+    [days, selected, selectDate, mealSelection, selectMeal, selectAutomaticMeal, nowMinutes],
   );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }

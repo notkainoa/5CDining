@@ -9,7 +9,13 @@ import { AppShell, HallChrome } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
-import { orderedHalls } from '@/lib/diningHalls';
+import { hallIdFromParts, orderedHalls, type HallId } from '@/lib/diningHalls';
+import {
+  createNativeHallRouteState,
+  observeNativeHallRoute,
+  reconcileNativeHallOrder,
+  selectNativeHall,
+} from '@/lib/native-hall-route-sync';
 import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
 import McConnellPage from './mcconnell';
@@ -38,35 +44,40 @@ const PAGES = {
  * Web uses _layout.web.tsx (expo-router Tabs, no swipe).
  */
 function TabLayoutNative() {
-  const segments = useSegments();
   const { loaded, hallOrder } = usePrefs();
+
+  if (!loaded) return <View style={[styles.fill, styles.boot]} />;
+
+  return <LoadedTabLayoutNative hallOrder={hallOrder} />;
+}
+
+function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
+  const segments = useSegments();
   const pagerRef = useRef<NativePagerHandle>(null);
 
-  const order: string[] = useMemo(() => orderedHalls(hallOrder).map((h) => h.id), [hallOrder]);
-
-  const [initialKey] = useState(() => {
-    const name = segments.at(1) ?? '';
-    return order.includes(name) ? name : order[0];
-  });
-  const [activeKey, setActiveKey] = useState(initialKey);
-  const activeKeyRef = useRef(activeKey);
-
-  useEffect(() => {
-    activeKeyRef.current = activeKey;
-  }, [activeKey]);
+  const order = useMemo(() => orderedHalls(hallOrder).map((hall) => hall.id), [hallOrder]);
+  const routedHall = hallIdFromParts(segments);
+  const [initialState] = useState(() => createNativeHallRouteState(routedHall, order));
+  const routeStateRef = useRef(initialState);
+  const [activeKey, setActiveKey] = useState(initialState.activeHall);
 
   const handlePageSelected = useCallback(
     (i: number) => {
-      setActiveKey(order[i] ?? '');
+      const hall = order[i];
+      if (hall === undefined) return;
+      routeStateRef.current = selectNativeHall(routeStateRef.current, hall);
+      setActiveKey(routeStateRef.current.activeHall);
     },
     [order],
   );
 
   const navigate = useCallback(
     (name: string) => {
-      const i = order.indexOf(name);
+      const hall = name as HallId;
+      const i = order.indexOf(hall);
       if (i >= 0) {
-        setActiveKey(name);
+        routeStateRef.current = selectNativeHall(routeStateRef.current, hall);
+        setActiveKey(routeStateRef.current.activeHall);
         pagerRef.current?.setPage(i);
       }
     },
@@ -87,20 +98,24 @@ function TabLayoutNative() {
   );
 
   useEffect(() => {
-    const name = segments.at(1) ?? '';
-    if (!order.includes(name) || name === activeKey) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time external nav sync
-    setActiveKey(name);
-    pagerRef.current?.setPageWithoutAnimation(order.indexOf(name));
-  }, [segments, order, activeKey]);
+    const current = routeStateRef.current;
+    const next = observeNativeHallRoute(current, routedHall);
+    routeStateRef.current = next;
+    if (next.activeHall === current.activeHall) return;
+
+    setActiveKey(next.activeHall);
+    pagerRef.current?.setPageWithoutAnimation(order.indexOf(next.activeHall));
+  }, [routedHall, order]);
 
   useEffect(() => {
-    // Only when hall order changes. Including activeKey here would snap the
-    // pager on every chip tap and cancel the swipe animation.
-    pagerRef.current?.setPageWithoutAnimation(Math.max(0, order.indexOf(activeKeyRef.current)));
+    const current = routeStateRef.current;
+    const next = reconcileNativeHallOrder(current, order);
+    routeStateRef.current = next;
+    if (next.activeHall !== current.activeHall) {
+      setActiveKey(next.activeHall);
+    }
+    pagerRef.current?.setPageWithoutAnimation(Math.max(0, order.indexOf(next.activeHall)));
   }, [order]);
-
-  if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 
   return (
     <TabNavProvider activeKey={activeKey} navigate={navigate}>
@@ -110,7 +125,7 @@ function TabLayoutNative() {
           <HallTabBar />
           <NativePager
             ref={pagerRef}
-            initialPage={Math.max(0, order.indexOf(initialKey))}
+            initialPage={Math.max(0, order.indexOf(initialState.activeHall))}
             onPageSelected={handlePageSelected}
           >
             {pages}

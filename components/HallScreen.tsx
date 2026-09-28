@@ -25,7 +25,13 @@ import {
 import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { useDay } from '@/lib/day';
-import { automaticMealSelection, mealIndexForSelection, mealKey } from '@/lib/mealSelection';
+import {
+  automaticMealSelection,
+  mealIndexForSelection,
+  mealSelectionIntent,
+  sameMealSelection,
+  type AutomaticMealObservation,
+} from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
@@ -43,10 +49,10 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const {
     selected,
     date,
-    mealName,
+    mealSelection,
     mealSelectionIsManual,
-    selectMealName,
-    selectAutomaticMealName,
+    selectMeal: selectMealIntent,
+    selectAutomaticMeal,
     nowMinutes,
   } = useDay();
   const { arm, disarm } = useDim();
@@ -69,41 +75,36 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
     [meals, selected, nowMinutes],
   );
-  const previousAutoIndex = useRef(autoIndex);
-
   const mealIndex = useMemo(
-    () => mealIndexForSelection(meals, mealName, autoIndex),
-    [meals, mealName, autoIndex],
+    () => mealIndexForSelection(meals, mealSelection, autoIndex),
+    [meals, mealSelection, autoIndex],
   );
 
-  useEffect(() => {
-    const autoIndexChanged = previousAutoIndex.current !== autoIndex;
-    previousAutoIndex.current = autoIndex;
-    const automaticSelection = automaticMealSelection({
-      meals,
-      selectedMeal: mealName,
-      autoIndex,
-      autoIndexChanged,
-      selectionIsManual: mealSelectionIsManual,
+  const selectedDate = formatYMDForApi(date);
+  const automaticObservation = useMemo<AutomaticMealObservation>(
+    () => ({
+      service: meals[autoIndex] ? mealSelectionIntent(meals[autoIndex]) : null,
+      menuDate: menu?.date ?? null,
+      selectedDate,
       isActiveHall: activeKey === hallId,
-      isCurrentMenu: menu?.date === formatYMDForApi(date),
       isToday: selected === 0,
+    }),
+    [meals, autoIndex, menu?.date, selectedDate, activeKey, hallId, selected],
+  );
+  const previousAutomaticObservation = useRef<AutomaticMealObservation | null>(null);
+
+  useEffect(() => {
+    const automaticSelection = automaticMealSelection({
+      previous: previousAutomaticObservation.current,
+      current: automaticObservation,
+      selectedMeal: mealSelection,
+      selectionIsManual: mealSelectionIsManual,
     });
-    if (automaticSelection && automaticSelection !== mealName) {
-      selectAutomaticMealName(automaticSelection);
+    previousAutomaticObservation.current = automaticObservation;
+    if (automaticSelection && !sameMealSelection(automaticSelection, mealSelection)) {
+      selectAutomaticMeal(automaticSelection);
     }
-  }, [
-    activeKey,
-    hallId,
-    menu?.date,
-    date,
-    meals,
-    mealName,
-    mealSelectionIsManual,
-    autoIndex,
-    selected,
-    selectAutomaticMealName,
-  ]);
+  }, [automaticObservation, mealSelection, mealSelectionIsManual, selectAutomaticMeal]);
 
   const expandAllRef = useRef(expandAllDefault);
   useEffect(() => {
@@ -162,7 +163,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
   const selectMeal = (i: number) => {
     const m = meals[i];
-    if (m) selectMealName(mealKey(m));
+    if (m) selectMealIntent(mealSelectionIntent(m));
     closePicker();
   };
 
@@ -351,9 +352,9 @@ function MealBody({
       plantBasedOnly: prefs.plantBasedOnly,
       avoidedAllergens: canFilterAllergens ? avoidedAllergens : [],
     });
+  const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
   const allOpen =
     meal.stations.length > 0 && meal.stations.every((_, i) => openStations.includes(i));
-  const dishCount = meal.stations.reduce((n, st) => n + st.items.length, 0);
   const matchCount = filtersActive
     ? meal.stations.reduce((n, st) => n + st.items.filter(isMatch).length, 0)
     : dishCount;
@@ -362,6 +363,17 @@ function MealBody({
     setOpenStations((prev: number[]) =>
       prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i],
     );
+
+  if (dishCount === 0) {
+    return (
+      <View style={styles.emptyMeal}>
+        <Text style={styles.stateTitle}>No dishes published</Text>
+        <Text style={styles.stateText}>
+          This hall hasn&apos;t posted a dish list for this meal.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.mealBody}>
@@ -594,6 +606,7 @@ const styles = StyleSheet.create({
   retry: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: Theme.white, fontWeight: '700' },
   mealBody: { gap: 4 },
+  emptyMeal: { alignItems: 'center', paddingVertical: 28, gap: 8 },
   bulkRow: {
     flexDirection: 'row',
     alignItems: 'center',
