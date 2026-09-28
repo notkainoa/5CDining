@@ -2,7 +2,7 @@ import { requireOptionalNativeModule } from 'expo';
 import type { ImageSourcePropType } from 'react-native';
 
 export type AppIconId =
-  'main' | 'plain' | 'anthropic' | 'halls' | 'spark' | 'book' | 'bowl' | 'loc' | 'stack' | 'window';
+  'main' | 'plain' | 'anthropic' | 'halls' | 'spark' | 'book' | 'bowl' | 'stack' | 'window';
 type AlternateAppIconId = Exclude<AppIconId, 'main'>;
 
 export interface AppIconOption {
@@ -32,7 +32,6 @@ export const APP_ICONS: readonly AppIconOption[] = [
   { id: 'spark', label: 'Spark', source: require('@/assets/images/icon_spark.png') },
   { id: 'book', label: 'Book', source: require('@/assets/images/icon_book.png') },
   { id: 'bowl', label: 'Bowl', source: require('@/assets/images/icon_bowl.png') },
-  { id: 'loc', label: 'Location', source: require('@/assets/images/icon_loc.png') },
   { id: 'stack', label: 'Stack', source: require('@/assets/images/icon_stack.png') },
   { id: 'window', label: 'Window', source: require('@/assets/images/icon_window.png') },
 ];

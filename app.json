@@ -90,14 +90,6 @@
                 "image": "./assets/images/icon_bowl.png"
               }
             },
-            "loc": {
-              "ios": {
-                "light": "./assets/images/icon_loc.png"
-              },
-              "android": {
-                "image": "./assets/images/icon_loc.png"
-              }
-            },
             "stack": {
               "ios": {
                 "light": "./assets/images/icon_stack.png"
