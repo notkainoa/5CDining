@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import NativePager, { type NativePagerHandle } from '@/components/NativePager';
+import { useSharedValue } from 'react-native-reanimated';
 import DiningTabBar from '@/components/DiningTabBar';
 import HallTabBar from '@/components/HallTabBar';
 import { AppShell, HallChrome } from '@/components/HallChrome';
@@ -60,28 +61,34 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
   const [initialState] = useState(() => createNativeHallRouteState(routedHall, order));
   const routeStateRef = useRef(initialState);
   const [activeKey, setActiveKey] = useState(initialState.activeHall);
+  const progress = useSharedValue(Math.max(0, order.indexOf(initialState.activeHall)));
+  const prep = useSharedValue(0);
 
   const handlePageSelected = useCallback(
     (i: number) => {
       const hall = order[i];
       if (hall === undefined) return;
+      progress.set(i);
+      prep.set(0);
       routeStateRef.current = selectNativeHall(routeStateRef.current, hall);
       setActiveKey(routeStateRef.current.activeHall);
     },
-    [order],
+    [order, prep, progress],
   );
 
   const navigate = useCallback(
     (name: string) => {
+      if (name === routeStateRef.current.activeHall) return;
       const hall = name as HallId;
       const i = order.indexOf(hall);
       if (i >= 0) {
+        prep.set(1);
         routeStateRef.current = selectNativeHall(routeStateRef.current, hall);
         setActiveKey(routeStateRef.current.activeHall);
         pagerRef.current?.setPage(i);
       }
     },
-    [order],
+    [order, prep],
   );
 
   const pages = useMemo(
@@ -104,8 +111,11 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
     if (next.activeHall === current.activeHall) return;
 
     setActiveKey(next.activeHall);
-    pagerRef.current?.setPageWithoutAnimation(order.indexOf(next.activeHall));
-  }, [routedHall, order]);
+    const i = order.indexOf(next.activeHall);
+    progress.set(i);
+    prep.set(0);
+    pagerRef.current?.setPageWithoutAnimation(i);
+  }, [routedHall, order, progress, prep]);
 
   useEffect(() => {
     const current = routeStateRef.current;
@@ -114,11 +124,14 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
     if (next.activeHall !== current.activeHall) {
       setActiveKey(next.activeHall);
     }
-    pagerRef.current?.setPageWithoutAnimation(Math.max(0, order.indexOf(next.activeHall)));
-  }, [order]);
+    const i = Math.max(0, order.indexOf(next.activeHall));
+    progress.set(i);
+    prep.set(0);
+    pagerRef.current?.setPageWithoutAnimation(i);
+  }, [order, progress, prep]);
 
   return (
-    <TabNavProvider activeKey={activeKey} navigate={navigate}>
+    <TabNavProvider activeKey={activeKey} navigate={navigate} progress={progress} prep={prep}>
       <AppShell>
         <StatusBar style="light" />
         <HallChrome>
@@ -127,6 +140,9 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
             ref={pagerRef}
             initialPage={Math.max(0, order.indexOf(initialState.activeHall))}
             onPageSelected={handlePageSelected}
+            onPageScroll={(e) => {
+              progress.set(e.position + e.offset); // EXP-3
+            }}
           >
             {pages}
           </NativePager>
