@@ -1,22 +1,16 @@
 import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 export interface NativePagerHandle {
   setPage: (index: number) => void;
   setPageWithoutAnimation: (index: number) => void;
 }
 
-export interface PageScrollEvent {
-  /** Index of the left (lower-index) page involved in the scroll. */
-  position: number;
-  /** 0..1 progress from `position` toward `position + 1`. */
-  offset: number;
-}
-
 interface Props {
   initialPage: number;
   onPageSelected: (index: number) => void;
-  onPageScroll?: (e: PageScrollEvent) => void;
+  progress: SharedValue<number>;
   children: ReactNode;
 }
 

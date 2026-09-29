@@ -64,16 +64,17 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
   const progress = useSharedValue(Math.max(0, order.indexOf(initialState.activeHall)));
   const prep = useSharedValue(0);
 
+  // iOS fires this when the page animation starts (and mid-swipe), so it must
+  // not touch `progress` or `prep`: the scroll events own position, and the
+  // tab bar clears `prep` once the pager actually lands.
   const handlePageSelected = useCallback(
     (i: number) => {
       const hall = order[i];
       if (hall === undefined) return;
-      progress.set(i);
-      prep.set(0);
       routeStateRef.current = selectNativeHall(routeStateRef.current, hall);
       setActiveKey(routeStateRef.current.activeHall);
     },
-    [order, prep, progress],
+    [order],
   );
 
   const navigate = useCallback(
@@ -140,9 +141,7 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
             ref={pagerRef}
             initialPage={Math.max(0, order.indexOf(initialState.activeHall))}
             onPageSelected={handlePageSelected}
-            onPageScroll={(e) => {
-              progress.set(e.position + e.offset); // EXP-3
-            }}
+            progress={progress}
           >
             {pages}
           </NativePager>

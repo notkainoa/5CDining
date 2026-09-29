@@ -257,11 +257,12 @@ export default function HallTabBar() {
     [scrollRef],
   );
 
-  // EXP-3 (sync hypothesis test): while the pager moves, the pager owns the
-  // blob's left/right edges so joinery and pages share one timeline. The
-  // chip-spring pour below still owns color + settle. Revert to remove.
-  // progressCtx is null on web (no pager) — the reaction stays idle there.
+  // With a pager (native), the pager is the only writer of the blob's
+  // left/right edges so the blob and pages share one timeline. The pour below
+  // still owns color and bar scroll. progressCtx is null on web (no pager);
+  // there the pour springs the edges instead.
   const progressCtx = usePagerProgress();
+  const prepCtx = usePrep();
   const orderSV = useSharedValue<string[]>([]);
   useEffect(() => {
     orderSV.set(halls.map((h) => h.id));
@@ -273,11 +274,18 @@ export default function HallTabBar() {
       order: orderSV.value,
       lay: layouts.value,
     }),
-    (cur) => {
+    (cur, prev) => {
       if (cur.p < 0) return;
       const n = cur.order.length;
       if (n === 0) return;
       const pc = Math.min(n - 1, Math.max(0, cur.p));
+      // Tap intent ends when the pager lands on the selected hall. Only on a
+      // real progress change, so the tap itself (prep set, pager not yet
+      // moving) can't clear it early.
+      if (prepCtx && prepCtx.value === 1 && prev !== null && prev.p !== cur.p) {
+        const target = cur.order.indexOf(activeId.value);
+        if (target >= 0 && Math.abs(pc - target) < 0.002) prepCtx.set(0);
+      }
       const i0 = Math.min(n - 1, Math.floor(pc));
       const f = pc - i0;
       const a = cur.lay[cur.order[i0]];
@@ -309,7 +317,6 @@ export default function HallTabBar() {
   });
   // EXP-9: explicit prep (tap intent) forces hiding ahead of motion; the
   // progress-derived inFlight below is the backstop (swipes, missed clears).
-  const prepCtx = usePrep();
   const hidden = useDerivedValue(() => (prepCtx ? prepCtx.value : 0) === 1 || inFlight.value);
   const joineryFadeStyle = useAnimatedStyle(() => ({
     // EXP-6/9: snap, staged one beat after the card corners snap (those read
@@ -397,9 +404,10 @@ export default function HallTabBar() {
         );
         return;
       }
+      const pagerOwnsEdges = !!progressCtx;
       if (prev.id === cur.id) {
         const moved = prev.x !== cur.x || prev.w !== cur.w;
-        if (moved) {
+        if (moved && !pagerOwnsEdges) {
           blobL.set(withSpring(nl, MOVE_SPRING));
           blobR.set(withSpring(nr, MOVE_SPRING));
         }
@@ -414,8 +422,10 @@ export default function HallTabBar() {
         }
         return;
       }
-      blobL.set(withSpring(nl, MOVE_SPRING));
-      blobR.set(withSpring(nr, MOVE_SPRING));
+      if (!pagerOwnsEdges) {
+        blobL.set(withSpring(nl, MOVE_SPRING));
+        blobR.set(withSpring(nr, MOVE_SPRING));
+      }
       fromCol.set(blobColorOf(state));
       toCol.set(hallColor(cur.id));
       colorT.set(0);
