@@ -548,8 +548,8 @@ export default function HallTabBar() {
       <Animated.View pointerEvents="none" style={[styles.joineryWrap, joineryFadeStyle]}>
         <CornerMask side="left" radius={maskL} color={chrome} />
         <CornerMask side="right" radius={maskR} color={chrome} />
-        <GutterEar side="left" state={state} chrome={chrome} />
-        <GutterEar side="right" state={state} chrome={chrome} />
+        <GutterEar side="left" state={state} chrome={chrome} dimmed={dimmed} />
+        <GutterEar side="right" state={state} chrome={chrome} dimmed={dimmed} />
       </Animated.View>
       <JoinStrip state={state} chrome={chrome} />
       <Animated.ScrollView
@@ -718,10 +718,12 @@ function GutterEar({
   side,
   state,
   chrome,
+  dimmed,
 }: {
   side: 'left' | 'right';
   state: BarState;
   chrome: string;
+  dimmed: boolean;
 }) {
   const size = useDerivedValue(() => {
     const g = blobGeo(state);
@@ -731,10 +733,15 @@ function GutterEar({
   });
   const boxStyle = useAnimatedStyle(() => {
     const s = size.value;
+    const color = blobColorOf(state);
     return {
       width: s,
       height: s,
-      backgroundColor: blobColorOf(state),
+      // Hangs below the bar, outside its dim overlay, so it's pre-blended
+      // with Theme.overlay (50% black) to match the dimmed page around it.
+      backgroundColor: dimmed
+        ? interpolateColor(0.5, [0, 1], [color, '#000000'], 'RGB', { gamma: 1 })
+        : color,
       ...(side === 'left' ? { left: HALL_INSET - s } : { right: HALL_INSET - s }),
     };
   });

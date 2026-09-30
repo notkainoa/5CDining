@@ -254,8 +254,14 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
           ) : null}
           {hours ? (
             <View style={styles.hoursWrap} pointerEvents="none">
-              <Text style={[styles.mealHours, { color: hall.onColor }]}>{hours}</Text>
-              {picker === 'meal' ? <View pointerEvents="none" style={styles.hoursScrim} /> : null}
+              <Text
+                style={[
+                  styles.mealHours,
+                  { color: picker === 'meal' ? underOverlay(hall.onColor) : hall.onColor },
+                ]}
+              >
+                {hours}
+              </Text>
             </View>
           ) : null}
           {picker === 'meal' ? (
@@ -494,6 +500,17 @@ function DietLabels({
   );
 }
 
+/**
+ * The raised meal row sits above the school overlay, so its hours text is
+ * pre-blended to match what Theme.overlay (50% black) would produce. A scrim
+ * can't be used: it would also darken the already-dimmed background behind it.
+ */
+function underOverlay(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const half = (shift: number) => Math.round(((n >> shift) & 0xff) / 2);
+  return `rgb(${half(16)}, ${half(8)}, ${half(0)})`;
+}
+
 function toTitle(s: string): string {
   return s
     .toLowerCase()
@@ -602,14 +619,6 @@ const styles = StyleSheet.create({
   hoursWrap: {
     flex: 1,
     justifyContent: 'center',
-  },
-  hoursScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Theme.overlay,
   },
   food: {
     flex: 1,
