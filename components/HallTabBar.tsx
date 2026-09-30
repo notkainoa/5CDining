@@ -77,13 +77,17 @@ const COLOR_SPRING = { duration: 380, dampingRatio: 1 };
  * corner springs back round. Underdamped so the corner over-rounds a touch
  * and settles; the stem and fillets clamp at 0 so only the corner wobbles.
  *
- * Physics springs rather than duration-based ones: at this damping a duration
- * spring crosses 0 in ~80ms and the stages blur into a snap. The release
- * starts with velocity (blobH/s) so it snaps free fast (fillets gone ~60ms),
- * then eases through the corner (~210ms to 0) and settles.
+ * Physics springs with a release velocity (blobH/s): it snaps free almost at
+ * once (fillets gone ~15ms), reaches 0 in ~100ms, and settles by ~275ms.
  */
-const ATTACH_SPRING = { stiffness: 170, damping: 19, mass: 1, velocity: 30 };
-const DETACH_SPRING = { stiffness: 100, damping: 13, mass: 1, velocity: -50 };
+const ATTACH_SPRING = { stiffness: 400, damping: 34, mass: 1, velocity: 60 };
+const DETACH_SPRING = { stiffness: 420, damping: 30, mass: 1, velocity: -140 };
+/**
+ * Before the pop: once the chip's overlap with the card drops below this, the
+ * fillets thin toward TAUT_MIN so the connector reads as stretched taut.
+ */
+const STRETCH_W = EAR;
+const TAUT_MIN = 0.2;
 /** Pop progress (blobH / STEM) below which the stem retracts and the card corner re-rounds. */
 const CORNER_STAGE = 0.8;
 /** Pop progress above which the fillets exist; they're gone before the corner moves much. */
@@ -138,6 +142,14 @@ function earEase(p: number): number {
 function earJoin(p: number): number {
   'worklet';
   return earEase((p - EAR_STAGE) / (1 - EAR_STAGE));
+}
+
+/** Fillet scale from how far the connector is stretched: 1 slack, TAUT_MIN at the pop. */
+function tautOf(g: Geo | null): number {
+  'worklet';
+  if (!g) return 1;
+  const t = clamp01(g.overlap / STRETCH_W);
+  return TAUT_MIN + (1 - TAUT_MIN) * t * t * (3 - 2 * t);
 }
 
 function neededScrollX(x: number, w: number, barW: number, scrollX: number): number | null {
@@ -612,7 +624,7 @@ function LiquidBlob({ state }: { state: BarState }) {
 
 function JoinStrip({ state, chrome }: { state: BarState; chrome: string }) {
   const geo = useDerivedValue(() => blobGeo(state));
-  const e = useDerivedValue(() => earJoin(popOf(state)));
+  const e = useDerivedValue(() => earJoin(popOf(state)) * tautOf(geo.value));
   const earL = useDerivedValue(() => (geo.value ? e.value * filletR(geo.value.dl) : 0));
   const earR = useDerivedValue(() => (geo.value ? e.value * filletR(geo.value.dr) : 0));
 
@@ -715,7 +727,7 @@ function GutterEar({
     const g = blobGeo(state);
     if (!g) return 0;
     const o = side === 'left' ? -g.dl : -g.dr;
-    return earJoin(popOf(state)) * gutterEarR(o);
+    return earJoin(popOf(state)) * tautOf(g) * gutterEarR(o);
   });
   const boxStyle = useAnimatedStyle(() => {
     const s = size.value;
