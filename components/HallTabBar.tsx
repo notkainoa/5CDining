@@ -78,10 +78,10 @@ const COLOR_SPRING = { duration: 380, dampingRatio: 1 };
  * and settles; the stem and fillets clamp at 0 so only the corner wobbles.
  *
  * Physics springs with a release velocity (blobH/s): it snaps free almost at
- * once (fillets gone ~15ms), reaches 0 in ~100ms, and settles by ~275ms.
+ * once (fillets gone ~6ms), the corner is round by ~55ms, settled by ~150ms.
  */
 const ATTACH_SPRING = { stiffness: 400, damping: 34, mass: 1, velocity: 60 };
-const DETACH_SPRING = { stiffness: 420, damping: 30, mass: 1, velocity: -140 };
+const DETACH_SPRING = { stiffness: 1300, damping: 60, mass: 1, velocity: -340 };
 /**
  * Before the pop: once the chip's overlap with the card drops below this, the
  * fillets thin toward TAUT_MIN so the connector reads as stretched taut.
