@@ -55,6 +55,11 @@ const CORNER = CHROME_RADIUS - HALL_INSET;
  * card. Lets go when that edge lines up with the card's edge.
  */
 const DETACH_W = 1;
+/**
+ * Overlap needed to re-join once popped. Wider than DETACH_W so a drag that
+ * rests on the edge can't flicker between pop and reattach.
+ */
+const ATTACH_W = 3;
 /** Theme.darkerGray under Theme.overlay, for the masks while the bar is dimmed. */
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
@@ -66,11 +71,29 @@ const HALL_COLOR: Record<string, string> = Object.fromEntries(
 /** Same critically damped spring on both edges so width never balloons past the chips. */
 const MOVE_SPRING = { duration: 380, dampingRatio: 1 };
 const COLOR_SPRING = { duration: 380, dampingRatio: 1 };
-const ATTACH_SPRING = { duration: 260, dampingRatio: 0.88 };
-const DETACH_SPRING = { duration: 200, dampingRatio: 0.72, overshootClamping: true };
-const SQUASH_SPRING = { duration: 340, dampingRatio: 0.58, clamp: { min: 0.93, max: 1.07 } };
-const RELEASE_VEL = -2.1;
-const LAND_VEL = 1.4;
+/**
+ * The pop. One spring (blobH) drives the whole release in stages: the fillets
+ * melt, then the stem retracts into the chip like a droplet while the card
+ * corner springs back round. Underdamped so the corner over-rounds a touch
+ * and settles; the stem and fillets clamp at 0 so only the corner wobbles.
+ *
+ * Physics springs with a release velocity (blobH/s): it snaps free almost at
+ * once (fillets gone ~3ms), the corner is round by ~28ms, settled by ~100ms.
+ */
+const ATTACH_SPRING = { stiffness: 400, damping: 34, mass: 1, velocity: 60 };
+const DETACH_SPRING = { stiffness: 3200, damping: 100, mass: 1, velocity: -650 };
+/**
+ * Before the pop: once the chip's overlap with the card drops below this, the
+ * fillets thin toward TAUT_MIN so the connector reads as stretched taut.
+ */
+const STRETCH_W = EAR;
+const TAUT_MIN = 0.2;
+/** Pop progress (blobH / STEM) below which the stem retracts and the card corner re-rounds. */
+const CORNER_STAGE = 0.8;
+/** Pop progress above which the fillets exist; they're gone before the corner moves much. */
+const EAR_STAGE = 0.6;
+/** Extra corner radius the spring may overshoot to (the mask is sized for it). */
+const CORNER_OVERSHOOT = 3;
 const PRESS_SPRING = { damping: 20, stiffness: 400 };
 
 interface ChipLayout {
@@ -89,7 +112,6 @@ interface BarState {
   fromCol: SharedValue<string>;
   toCol: SharedValue<string>;
   colorT: SharedValue<number>;
-  squash: SharedValue<number>;
 }
 
 function clamp01(v: number): number {
@@ -97,15 +119,37 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
-function stemEase(p: number): number {
+/** Raw pop progress: 1 joined, 0 released; the detach spring dips below 0. */
+function popOf(s: BarState): number {
   'worklet';
-  const t = clamp01(p);
-  return t * t * (3 - 2 * t);
+  return s.blobH.value / STEM;
+}
+
+/**
+ * How joined the card corner is. Linear in the spring so the corner moves with
+ * spring timing; goes negative on overshoot, which over-rounds the corner.
+ */
+function cornerJoin(p: number): number {
+  'worklet';
+  return Math.max(-CORNER_OVERSHOOT / CORNER, Math.min(1, p / CORNER_STAGE));
 }
 
 function earEase(p: number): number {
   'worklet';
   return Math.pow(clamp01(p), 1.75);
+}
+
+function earJoin(p: number): number {
+  'worklet';
+  return earEase((p - EAR_STAGE) / (1 - EAR_STAGE));
+}
+
+/** Fillet scale from how far the connector is stretched: 1 slack, TAUT_MIN at the pop. */
+function tautOf(g: Geo | null): number {
+  'worklet';
+  if (!g) return 1;
+  const t = clamp01(g.overlap / STRETCH_W);
+  return TAUT_MIN + (1 - TAUT_MIN) * t * t * (3 - 2 * t);
 }
 
 function neededScrollX(x: number, w: number, barW: number, scrollX: number): number | null {
@@ -227,7 +271,6 @@ export default function HallTabBar() {
   const fromCol = useSharedValue(startColor);
   const toCol = useSharedValue(startColor);
   const colorT = useSharedValue(1);
-  const squash = useSharedValue(1);
   const layoutGen = useSharedValue(0);
   /** Programmatic scroll position, sprung with the blob so clipped chips ease in. */
   const scrollAnim = useSharedValue(0);
@@ -245,9 +288,8 @@ export default function HallTabBar() {
       fromCol,
       toCol,
       colorT,
-      squash,
     }),
-    [scrollX, barW, layouts, activeId, blobL, blobR, blobH, fromCol, toCol, colorT, squash],
+    [scrollX, barW, layouts, activeId, blobL, blobR, blobH, fromCol, toCol, colorT],
   );
 
   const applyScroll = useCallback(
@@ -257,11 +299,12 @@ export default function HallTabBar() {
     [scrollRef],
   );
 
-  // EXP-3 (sync hypothesis test): while the pager moves, the pager owns the
-  // blob's left/right edges so joinery and pages share one timeline. The
-  // chip-spring pour below still owns color + settle. Revert to remove.
-  // progressCtx is null on web (no pager) — the reaction stays idle there.
+  // With a pager (native), the pager is the only writer of the blob's
+  // left/right edges so the blob and pages share one timeline. The pour below
+  // still owns color and bar scroll. progressCtx is null on web (no pager);
+  // there the pour springs the edges instead.
   const progressCtx = usePagerProgress();
+  const prepCtx = usePrep();
   const orderSV = useSharedValue<string[]>([]);
   useEffect(() => {
     orderSV.set(halls.map((h) => h.id));
@@ -273,11 +316,19 @@ export default function HallTabBar() {
       order: orderSV.value,
       lay: layouts.value,
     }),
-    (cur) => {
+    (cur, prev) => {
       if (cur.p < 0) return;
       const n = cur.order.length;
       if (n === 0) return;
       const pc = Math.min(n - 1, Math.max(0, cur.p));
+      // Tap intent ends when the pager lands on a page. Only on a real
+      // progress change, so the tap itself (prep set, pager not yet moving)
+      // can't clear it early. Any page counts, not just the tapped one, so a
+      // tap interrupted by a swipe can't leave prep stuck; landing on an
+      // intermediate page mid-flight is covered by the inFlight backstop.
+      if (prepCtx && prepCtx.value === 1 && prev !== null && prev.p !== cur.p) {
+        if (Math.abs(pc - Math.round(pc)) < 0.002) prepCtx.set(0);
+      }
       const i0 = Math.min(n - 1, Math.floor(pc));
       const f = pc - i0;
       const a = cur.lay[cur.order[i0]];
@@ -309,7 +360,6 @@ export default function HallTabBar() {
   });
   // EXP-9: explicit prep (tap intent) forces hiding ahead of motion; the
   // progress-derived inFlight below is the backstop (swipes, missed clears).
-  const prepCtx = usePrep();
   const hidden = useDerivedValue(() => (prepCtx ? prepCtx.value : 0) === 1 || inFlight.value);
   const joineryFadeStyle = useAnimatedStyle(() => ({
     // EXP-6/9: snap, staged one beat after the card corners snap (those read
@@ -387,7 +437,6 @@ export default function HallTabBar() {
         toCol.set(hallColor(cur.id));
         colorT.set(1);
         blobH.set(STEM);
-        squash.set(1);
         snapBarScroll(
           scrollRef,
           applyScroll,
@@ -397,9 +446,10 @@ export default function HallTabBar() {
         );
         return;
       }
+      const pagerOwnsEdges = !!progressCtx;
       if (prev.id === cur.id) {
         const moved = prev.x !== cur.x || prev.w !== cur.w;
-        if (moved) {
+        if (moved && !pagerOwnsEdges) {
           blobL.set(withSpring(nl, MOVE_SPRING));
           blobR.set(withSpring(nr, MOVE_SPRING));
         }
@@ -414,13 +464,14 @@ export default function HallTabBar() {
         }
         return;
       }
-      blobL.set(withSpring(nl, MOVE_SPRING));
-      blobR.set(withSpring(nr, MOVE_SPRING));
+      if (!pagerOwnsEdges) {
+        blobL.set(withSpring(nl, MOVE_SPRING));
+        blobR.set(withSpring(nr, MOVE_SPRING));
+      }
       fromCol.set(blobColorOf(state));
       toCol.set(hallColor(cur.id));
       colorT.set(0);
       colorT.set(withSpring(1, COLOR_SPRING));
-      squash.set(1);
       springBarScroll(
         scrollX,
         scrollAnim,
@@ -432,51 +483,48 @@ export default function HallTabBar() {
   );
 
   // Attach/detach vs the hall card — independent of which chip is selected.
+  const joined = useSharedValue(true);
   useAnimatedReaction(
     () => {
       const g = blobGeo(state);
       if (!activeId.value || !g) return null;
-      return g.overlap >= DETACH_W;
+      return g.overlap >= (joined.value ? DETACH_W : ATTACH_W);
     },
     (attached, prev) => {
+      joined.set(attached === true);
       // Settings/search (or no geometry): hide instantly. Grow-in is for
       // hall↔hall pours and the scroll-off pop, not for entering a hall page.
       if (attached === null) {
         blobH.set(0);
-        squash.set(1);
         return;
       }
       if (prev === attached) return;
       if (attached) {
         if (prev === false) {
           blobH.set(withSpring(STEM, ATTACH_SPRING));
-          squash.set(withSpring(1, { ...SQUASH_SPRING, velocity: LAND_VEL }));
         } else {
           blobH.set(STEM);
-          squash.set(1);
         }
       } else if (prev === true) {
         blobH.set(withSpring(0, DETACH_SPRING));
-        squash.set(withSpring(1, { ...SQUASH_SPRING, velocity: RELEASE_VEL }));
       } else {
         blobH.set(0);
-        squash.set(1);
       }
     },
     [state],
   );
 
-  const attachP = useDerivedValue(() => stemEase(blobH.value / STEM));
+  const cornerP = useDerivedValue(() => cornerJoin(popOf(state)));
 
   const maskL = useDerivedValue(() => {
     const g = blobGeo(state);
     if (!g) return CORNER;
-    return Math.max(0, CORNER - attachP.value * (CORNER - cornerR(g.dl)));
+    return Math.max(0, CORNER - cornerP.value * (CORNER - cornerR(g.dl)));
   });
   const maskR = useDerivedValue(() => {
     const g = blobGeo(state);
     if (!g) return CORNER;
-    return Math.max(0, CORNER - attachP.value * (CORNER - cornerR(g.dr)));
+    return Math.max(0, CORNER - cornerP.value * (CORNER - cornerR(g.dr)));
   });
 
   // EXP-8: publish live mask radii so hall pages' own top corners match,
@@ -496,7 +544,7 @@ export default function HallTabBar() {
   return (
     <View style={styles.wrap}>
       {/* EXP-6: corner masks + gutter ears hide while the pager is between
-          pages. The JoinStrip connector below is untouched original behavior. */}
+          pages. The JoinStrip connector below stays visible in flight. */}
       <Animated.View pointerEvents="none" style={[styles.joineryWrap, joineryFadeStyle]}>
         <CornerMask side="left" radius={maskL} color={chrome} />
         <CornerMask side="right" radius={maskR} color={chrome} />
@@ -543,15 +591,21 @@ export default function HallTabBar() {
 
 function LiquidBlob({ state }: { state: BarState }) {
   const geo = useDerivedValue(() => blobGeo(state));
-  const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
+  const p = useDerivedValue(() => clamp01(popOf(state)));
 
   const boxStyle = useAnimatedStyle(() => {
     const w = Math.max(0, state.blobR.value - state.blobL.value);
-    const stemH = STEM * stemEase(p.value);
-    // Always reach the hall card (+2px overlap) so a hairline of chrome
-    // never shows while the tab pours.
-    const h = CHIP_H * p.value + stemH + (p.value > 0.01 ? 2 : 0);
+    // The stem holds until the fillets have mostly melted, then retracts in
+    // step with the card corner re-rounding.
+    const j = clamp01(cornerJoin(p.value));
+    const stemH = STEM * j;
+    // Reach 2px into the hall card while joined so a hairline of chrome never
+    // shows while the tab pours.
+    const h = CHIP_H + stemH + 2 * j;
     const g = geo.value;
+    // Retracting, the stem's bottom corners round back to the chip's own
+    // radius, so it pulls up like a droplet and leaves a plain chip.
+    const free = CHIP_RADIUS * (1 - j);
     return {
       left: state.blobL.value,
       width: w,
@@ -559,10 +613,9 @@ function LiquidBlob({ state }: { state: BarState }) {
       backgroundColor: blobColorOf(state),
       borderTopLeftRadius: CHIP_RADIUS,
       borderTopRightRadius: CHIP_RADIUS,
-      borderBottomLeftRadius: g ? Math.min(stemH, overhangStemR(-g.dl)) : 0,
-      borderBottomRightRadius: g ? Math.min(stemH, overhangStemR(-g.dr)) : 0,
+      borderBottomLeftRadius: (g ? Math.min(stemH, overhangStemR(-g.dl)) : 0) * j + free,
+      borderBottomRightRadius: (g ? Math.min(stemH, overhangStemR(-g.dr)) : 0) * j + free,
       opacity: p.value > 0.02 ? 1 : 0,
-      transform: [{ scaleY: state.squash.value }],
     };
   });
 
@@ -571,14 +624,14 @@ function LiquidBlob({ state }: { state: BarState }) {
 
 function JoinStrip({ state, chrome }: { state: BarState; chrome: string }) {
   const geo = useDerivedValue(() => blobGeo(state));
-  const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
-  const earL = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dl) : 0));
-  const earR = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dr) : 0));
+  const e = useDerivedValue(() => earJoin(popOf(state)) * tautOf(geo.value));
+  const earL = useDerivedValue(() => (geo.value ? e.value * filletR(geo.value.dl) : 0));
+  const earR = useDerivedValue(() => (geo.value ? e.value * filletR(geo.value.dr) : 0));
 
   const stripStyle = useAnimatedStyle(() => ({
     left: state.blobL.value - state.scrollX.value,
     width: Math.max(0, state.blobR.value - state.blobL.value),
-    opacity: p.value > 0.02 ? 1 : 0,
+    opacity: e.value > 0.01 ? 1 : 0,
   }));
 
   const earLStyle = useAnimatedStyle(() => {
@@ -674,7 +727,7 @@ function GutterEar({
     const g = blobGeo(state);
     if (!g) return 0;
     const o = side === 'left' ? -g.dl : -g.dr;
-    return earEase(state.blobH.value / STEM) * gutterEarR(o);
+    return earJoin(popOf(state)) * tautOf(g) * gutterEarR(o);
   });
   const boxStyle = useAnimatedStyle(() => {
     const s = size.value;
@@ -817,9 +870,9 @@ const styles = StyleSheet.create({
   },
   mask: {
     position: 'absolute',
-    bottom: -CORNER,
-    width: CORNER + HALL_INSET,
-    height: CORNER + HALL_INSET,
+    bottom: -(CORNER + CORNER_OVERSHOOT),
+    width: CORNER + CORNER_OVERSHOOT + HALL_INSET,
+    height: CORNER + CORNER_OVERSHOOT + HALL_INSET,
     backgroundColor: 'transparent',
     borderTopWidth: HALL_INSET,
     pointerEvents: 'none',
