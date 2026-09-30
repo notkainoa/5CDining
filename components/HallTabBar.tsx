@@ -55,6 +55,11 @@ const CORNER = CHROME_RADIUS - HALL_INSET;
  * card. Lets go when that edge lines up with the card's edge.
  */
 const DETACH_W = 1;
+/**
+ * Overlap needed to re-join once popped. Wider than DETACH_W so a drag that
+ * rests on the edge can't flicker between pop and reattach.
+ */
+const ATTACH_W = 3;
 /** Theme.darkerGray under Theme.overlay, for the masks while the bar is dimmed. */
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
@@ -304,12 +309,13 @@ export default function HallTabBar() {
       const n = cur.order.length;
       if (n === 0) return;
       const pc = Math.min(n - 1, Math.max(0, cur.p));
-      // Tap intent ends when the pager lands on the selected hall. Only on a
-      // real progress change, so the tap itself (prep set, pager not yet
-      // moving) can't clear it early.
+      // Tap intent ends when the pager lands on a page. Only on a real
+      // progress change, so the tap itself (prep set, pager not yet moving)
+      // can't clear it early. Any page counts, not just the tapped one, so a
+      // tap interrupted by a swipe can't leave prep stuck; landing on an
+      // intermediate page mid-flight is covered by the inFlight backstop.
       if (prepCtx && prepCtx.value === 1 && prev !== null && prev.p !== cur.p) {
-        const target = cur.order.indexOf(activeId.value);
-        if (target >= 0 && Math.abs(pc - target) < 0.002) prepCtx.set(0);
+        if (Math.abs(pc - Math.round(pc)) < 0.002) prepCtx.set(0);
       }
       const i0 = Math.min(n - 1, Math.floor(pc));
       const f = pc - i0;
@@ -465,13 +471,15 @@ export default function HallTabBar() {
   );
 
   // Attach/detach vs the hall card — independent of which chip is selected.
+  const joined = useSharedValue(true);
   useAnimatedReaction(
     () => {
       const g = blobGeo(state);
       if (!activeId.value || !g) return null;
-      return g.overlap >= DETACH_W;
+      return g.overlap >= (joined.value ? DETACH_W : ATTACH_W);
     },
     (attached, prev) => {
+      joined.set(attached === true);
       // Settings/search (or no geometry): hide instantly. Grow-in is for
       // hall↔hall pours and the scroll-off pop, not for entering a hall page.
       if (attached === null) {
