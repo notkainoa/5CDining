@@ -544,7 +544,7 @@ export default function HallTabBar() {
   return (
     <View style={styles.wrap}>
       {/* EXP-6: corner masks + gutter ears hide while the pager is between
-          pages. The JoinStrip connector below is untouched original behavior. */}
+          pages. The JoinStrip connector below stays visible in flight. */}
       <Animated.View pointerEvents="none" style={[styles.joineryWrap, joineryFadeStyle]}>
         <CornerMask side="left" radius={maskL} color={chrome} />
         <CornerMask side="right" radius={maskR} color={chrome} />
