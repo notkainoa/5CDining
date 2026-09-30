@@ -51,13 +51,10 @@ const GUTTER_EAR = EAR;
  */
 const CORNER = CHROME_RADIUS - HALL_INSET;
 /**
- * Pinch-off as a chip slides past the card edge, by remaining overlap with the
- * card. Fillets melt first (NECK + EAR_MELT → NECK), then the stem retracts
- * and the card corner re-rounds (NECK → 0). Staged so a fillet never hangs
- * beside a re-rounding corner. Purely geometric: tracks the finger, never snaps.
+ * Stay attached until the last pixel of the chip still overlaps the hall
+ * card. Lets go when that edge lines up with the card's edge.
  */
-const NECK = 12;
-const EAR_MELT = CORNER;
+const DETACH_W = 1;
 /** Theme.darkerGray under Theme.overlay, for the masks while the bar is dimmed. */
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
@@ -69,6 +66,25 @@ const HALL_COLOR: Record<string, string> = Object.fromEntries(
 /** Same critically damped spring on both edges so width never balloons past the chips. */
 const MOVE_SPRING = { duration: 380, dampingRatio: 1 };
 const COLOR_SPRING = { duration: 380, dampingRatio: 1 };
+/**
+ * The pop. One spring (blobH) drives the whole release in stages: the fillets
+ * melt, then the stem retracts into the chip like a droplet while the card
+ * corner springs back round. Underdamped so the corner over-rounds a touch
+ * and settles; the stem and fillets clamp at 0 so only the corner wobbles.
+ *
+ * Physics springs rather than duration-based ones: at this damping a duration
+ * spring crosses 0 in ~80ms and the stages blur into a snap. The release
+ * starts with velocity (blobH/s) so it snaps free fast (fillets gone ~60ms),
+ * then eases through the corner (~210ms to 0) and settles.
+ */
+const ATTACH_SPRING = { stiffness: 170, damping: 19, mass: 1, velocity: 30 };
+const DETACH_SPRING = { stiffness: 100, damping: 13, mass: 1, velocity: -50 };
+/** Pop progress (blobH / STEM) below which the stem retracts and the card corner re-rounds. */
+const CORNER_STAGE = 0.8;
+/** Pop progress above which the fillets exist; they're gone before the corner moves much. */
+const EAR_STAGE = 0.6;
+/** Extra corner radius the spring may overshoot to (the mask is sized for it). */
+const CORNER_OVERSHOOT = 3;
 const PRESS_SPRING = { damping: 20, stiffness: 400 };
 
 interface ChipLayout {
@@ -94,15 +110,29 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
-function stemEase(p: number): number {
+/** Raw pop progress: 1 joined, 0 released; the detach spring dips below 0. */
+function popOf(s: BarState): number {
   'worklet';
-  const t = clamp01(p);
-  return t * t * (3 - 2 * t);
+  return s.blobH.value / STEM;
+}
+
+/**
+ * How joined the card corner is. Linear in the spring so the corner moves with
+ * spring timing; goes negative on overshoot, which over-rounds the corner.
+ */
+function cornerJoin(p: number): number {
+  'worklet';
+  return Math.max(-CORNER_OVERSHOOT / CORNER, Math.min(1, p / CORNER_STAGE));
 }
 
 function earEase(p: number): number {
   'worklet';
   return Math.pow(clamp01(p), 1.75);
+}
+
+function earJoin(p: number): number {
+  'worklet';
+  return earEase((p - EAR_STAGE) / (1 - EAR_STAGE));
 }
 
 function neededScrollX(x: number, w: number, barW: number, scrollX: number): number | null {
@@ -180,20 +210,6 @@ function blobGeo(s: BarState): Geo | null {
   const hl = HALL_INSET;
   const hr = w - HALL_INSET;
   return { dl: cl - hl, dr: hr - cr, overlap: Math.min(cr, hr) - Math.max(cl, hl) };
-}
-
-/** Stem/corner joinery: 0 detached, 1 fully joined. Stem gate × edge pinch. */
-function attachOf(s: BarState, g: Geo | null): number {
-  'worklet';
-  if (!g) return 0;
-  return clamp01(s.blobH.value / STEM) * stemEase(g.overlap / NECK);
-}
-
-/** Fillet strength; reaches 0 before the stem starts to retract. */
-function earsOf(s: BarState, g: Geo | null): number {
-  'worklet';
-  if (!g) return 0;
-  return clamp01(s.blobH.value / STEM) * stemEase((g.overlap - NECK) / EAR_MELT);
 }
 
 function filletR(d: number): number {
@@ -448,26 +464,47 @@ export default function HallTabBar() {
     [state, layoutGen],
   );
 
-  // Stem gate: off on settings/search (no active hall or geometry), on
-  // instantly otherwise. Scrolling off the card edge is handled by the
-  // geometric pinch in attachOf, not by this gate.
+  // Attach/detach vs the hall card — independent of which chip is selected.
   useAnimatedReaction(
-    () => !!activeId.value && blobGeo(state) !== null,
-    (on) => {
-      blobH.set(on ? STEM : 0);
+    () => {
+      const g = blobGeo(state);
+      if (!activeId.value || !g) return null;
+      return g.overlap >= DETACH_W;
+    },
+    (attached, prev) => {
+      // Settings/search (or no geometry): hide instantly. Grow-in is for
+      // hall↔hall pours and the scroll-off pop, not for entering a hall page.
+      if (attached === null) {
+        blobH.set(0);
+        return;
+      }
+      if (prev === attached) return;
+      if (attached) {
+        if (prev === false) {
+          blobH.set(withSpring(STEM, ATTACH_SPRING));
+        } else {
+          blobH.set(STEM);
+        }
+      } else if (prev === true) {
+        blobH.set(withSpring(0, DETACH_SPRING));
+      } else {
+        blobH.set(0);
+      }
     },
     [state],
   );
 
+  const cornerP = useDerivedValue(() => cornerJoin(popOf(state)));
+
   const maskL = useDerivedValue(() => {
     const g = blobGeo(state);
     if (!g) return CORNER;
-    return Math.max(0, CORNER - attachOf(state, g) * (CORNER - cornerR(g.dl)));
+    return Math.max(0, CORNER - cornerP.value * (CORNER - cornerR(g.dl)));
   });
   const maskR = useDerivedValue(() => {
     const g = blobGeo(state);
     if (!g) return CORNER;
-    return Math.max(0, CORNER - attachOf(state, g) * (CORNER - cornerR(g.dr)));
+    return Math.max(0, CORNER - cornerP.value * (CORNER - cornerR(g.dr)));
   });
 
   // EXP-8: publish live mask radii so hall pages' own top corners match,
@@ -534,19 +571,21 @@ export default function HallTabBar() {
 
 function LiquidBlob({ state }: { state: BarState }) {
   const geo = useDerivedValue(() => blobGeo(state));
-  const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
-  const a = useDerivedValue(() => attachOf(state, geo.value));
+  const p = useDerivedValue(() => clamp01(popOf(state)));
 
   const boxStyle = useAnimatedStyle(() => {
     const w = Math.max(0, state.blobR.value - state.blobL.value);
-    const stemH = STEM * a.value;
+    // The stem holds until the fillets have mostly melted, then retracts in
+    // step with the card corner re-rounding.
+    const j = clamp01(cornerJoin(p.value));
+    const stemH = STEM * j;
     // Reach 2px into the hall card while joined so a hairline of chrome never
-    // shows while the tab pours; fades with the stem as it pinches off.
-    const h = CHIP_H * p.value + stemH + 2 * a.value;
+    // shows while the tab pours.
+    const h = CHIP_H + stemH + 2 * j;
     const g = geo.value;
-    // As the stem pinches off, its bottom corners round back to the chip's
-    // own radius so it retracts like a droplet and leaves a plain chip.
-    const free = CHIP_RADIUS * (1 - a.value);
+    // Retracting, the stem's bottom corners round back to the chip's own
+    // radius, so it pulls up like a droplet and leaves a plain chip.
+    const free = CHIP_RADIUS * (1 - j);
     return {
       left: state.blobL.value,
       width: w,
@@ -554,8 +593,8 @@ function LiquidBlob({ state }: { state: BarState }) {
       backgroundColor: blobColorOf(state),
       borderTopLeftRadius: CHIP_RADIUS,
       borderTopRightRadius: CHIP_RADIUS,
-      borderBottomLeftRadius: (g ? Math.min(stemH, overhangStemR(-g.dl)) : 0) * a.value + free,
-      borderBottomRightRadius: (g ? Math.min(stemH, overhangStemR(-g.dr)) : 0) * a.value + free,
+      borderBottomLeftRadius: (g ? Math.min(stemH, overhangStemR(-g.dl)) : 0) * j + free,
+      borderBottomRightRadius: (g ? Math.min(stemH, overhangStemR(-g.dr)) : 0) * j + free,
       opacity: p.value > 0.02 ? 1 : 0,
     };
   });
@@ -565,14 +604,14 @@ function LiquidBlob({ state }: { state: BarState }) {
 
 function JoinStrip({ state, chrome }: { state: BarState; chrome: string }) {
   const geo = useDerivedValue(() => blobGeo(state));
-  const e = useDerivedValue(() => earsOf(state, geo.value));
-  const earL = useDerivedValue(() => (geo.value ? earEase(e.value) * filletR(geo.value.dl) : 0));
-  const earR = useDerivedValue(() => (geo.value ? earEase(e.value) * filletR(geo.value.dr) : 0));
+  const e = useDerivedValue(() => earJoin(popOf(state)));
+  const earL = useDerivedValue(() => (geo.value ? e.value * filletR(geo.value.dl) : 0));
+  const earR = useDerivedValue(() => (geo.value ? e.value * filletR(geo.value.dr) : 0));
 
   const stripStyle = useAnimatedStyle(() => ({
     left: state.blobL.value - state.scrollX.value,
     width: Math.max(0, state.blobR.value - state.blobL.value),
-    opacity: e.value > 0.02 ? 1 : 0,
+    opacity: e.value > 0.01 ? 1 : 0,
   }));
 
   const earLStyle = useAnimatedStyle(() => {
@@ -668,7 +707,7 @@ function GutterEar({
     const g = blobGeo(state);
     if (!g) return 0;
     const o = side === 'left' ? -g.dl : -g.dr;
-    return earEase(earsOf(state, g)) * gutterEarR(o);
+    return earJoin(popOf(state)) * gutterEarR(o);
   });
   const boxStyle = useAnimatedStyle(() => {
     const s = size.value;
@@ -765,6 +804,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     pointerEvents: 'none',
     zIndex: 0,
+    transformOrigin: 'bottom',
   },
   chip: {
     height: CHIP_H,
@@ -810,9 +850,9 @@ const styles = StyleSheet.create({
   },
   mask: {
     position: 'absolute',
-    bottom: -CORNER,
-    width: CORNER + HALL_INSET,
-    height: CORNER + HALL_INSET,
+    bottom: -(CORNER + CORNER_OVERSHOOT),
+    width: CORNER + CORNER_OVERSHOOT + HALL_INSET,
+    height: CORNER + CORNER_OVERSHOOT + HALL_INSET,
     backgroundColor: 'transparent',
     borderTopWidth: HALL_INSET,
     pointerEvents: 'none',
