@@ -51,10 +51,13 @@ const GUTTER_EAR = EAR;
  */
 const CORNER = CHROME_RADIUS - HALL_INSET;
 /**
- * Stay attached until the last pixel of the chip still overlaps the hall
- * card. Lets go when that edge lines up with the card's edge.
+ * Pinch-off as a chip slides past the card edge, by remaining overlap with the
+ * card. Fillets melt first (NECK + EAR_MELT → NECK), then the stem retracts
+ * and the card corner re-rounds (NECK → 0). Staged so a fillet never hangs
+ * beside a re-rounding corner. Purely geometric: tracks the finger, never snaps.
  */
-const DETACH_W = 1;
+const NECK = 12;
+const EAR_MELT = CORNER;
 /** Theme.darkerGray under Theme.overlay, for the masks while the bar is dimmed. */
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
@@ -66,11 +69,6 @@ const HALL_COLOR: Record<string, string> = Object.fromEntries(
 /** Same critically damped spring on both edges so width never balloons past the chips. */
 const MOVE_SPRING = { duration: 380, dampingRatio: 1 };
 const COLOR_SPRING = { duration: 380, dampingRatio: 1 };
-const ATTACH_SPRING = { duration: 260, dampingRatio: 0.88 };
-const DETACH_SPRING = { duration: 200, dampingRatio: 0.72, overshootClamping: true };
-const SQUASH_SPRING = { duration: 340, dampingRatio: 0.58, clamp: { min: 0.93, max: 1.07 } };
-const RELEASE_VEL = -2.1;
-const LAND_VEL = 1.4;
 const PRESS_SPRING = { damping: 20, stiffness: 400 };
 
 interface ChipLayout {
@@ -89,7 +87,6 @@ interface BarState {
   fromCol: SharedValue<string>;
   toCol: SharedValue<string>;
   colorT: SharedValue<number>;
-  squash: SharedValue<number>;
 }
 
 function clamp01(v: number): number {
@@ -185,6 +182,20 @@ function blobGeo(s: BarState): Geo | null {
   return { dl: cl - hl, dr: hr - cr, overlap: Math.min(cr, hr) - Math.max(cl, hl) };
 }
 
+/** Stem/corner joinery: 0 detached, 1 fully joined. Stem gate × edge pinch. */
+function attachOf(s: BarState, g: Geo | null): number {
+  'worklet';
+  if (!g) return 0;
+  return clamp01(s.blobH.value / STEM) * stemEase(g.overlap / NECK);
+}
+
+/** Fillet strength; reaches 0 before the stem starts to retract. */
+function earsOf(s: BarState, g: Geo | null): number {
+  'worklet';
+  if (!g) return 0;
+  return clamp01(s.blobH.value / STEM) * stemEase((g.overlap - NECK) / EAR_MELT);
+}
+
 function filletR(d: number): number {
   'worklet';
   return Math.min(EAR, Math.max(0, d) * (EAR / (EAR + CORNER)));
@@ -227,7 +238,6 @@ export default function HallTabBar() {
   const fromCol = useSharedValue(startColor);
   const toCol = useSharedValue(startColor);
   const colorT = useSharedValue(1);
-  const squash = useSharedValue(1);
   const layoutGen = useSharedValue(0);
   /** Programmatic scroll position, sprung with the blob so clipped chips ease in. */
   const scrollAnim = useSharedValue(0);
@@ -245,9 +255,8 @@ export default function HallTabBar() {
       fromCol,
       toCol,
       colorT,
-      squash,
     }),
-    [scrollX, barW, layouts, activeId, blobL, blobR, blobH, fromCol, toCol, colorT, squash],
+    [scrollX, barW, layouts, activeId, blobL, blobR, blobH, fromCol, toCol, colorT],
   );
 
   const applyScroll = useCallback(
@@ -394,7 +403,6 @@ export default function HallTabBar() {
         toCol.set(hallColor(cur.id));
         colorT.set(1);
         blobH.set(STEM);
-        squash.set(1);
         snapBarScroll(
           scrollRef,
           applyScroll,
@@ -430,7 +438,6 @@ export default function HallTabBar() {
       toCol.set(hallColor(cur.id));
       colorT.set(0);
       colorT.set(withSpring(1, COLOR_SPRING));
-      squash.set(1);
       springBarScroll(
         scrollX,
         scrollAnim,
@@ -441,52 +448,26 @@ export default function HallTabBar() {
     [state, layoutGen],
   );
 
-  // Attach/detach vs the hall card — independent of which chip is selected.
+  // Stem gate: off on settings/search (no active hall or geometry), on
+  // instantly otherwise. Scrolling off the card edge is handled by the
+  // geometric pinch in attachOf, not by this gate.
   useAnimatedReaction(
-    () => {
-      const g = blobGeo(state);
-      if (!activeId.value || !g) return null;
-      return g.overlap >= DETACH_W;
-    },
-    (attached, prev) => {
-      // Settings/search (or no geometry): hide instantly. Grow-in is for
-      // hall↔hall pours and the scroll-off pop, not for entering a hall page.
-      if (attached === null) {
-        blobH.set(0);
-        squash.set(1);
-        return;
-      }
-      if (prev === attached) return;
-      if (attached) {
-        if (prev === false) {
-          blobH.set(withSpring(STEM, ATTACH_SPRING));
-          squash.set(withSpring(1, { ...SQUASH_SPRING, velocity: LAND_VEL }));
-        } else {
-          blobH.set(STEM);
-          squash.set(1);
-        }
-      } else if (prev === true) {
-        blobH.set(withSpring(0, DETACH_SPRING));
-        squash.set(withSpring(1, { ...SQUASH_SPRING, velocity: RELEASE_VEL }));
-      } else {
-        blobH.set(0);
-        squash.set(1);
-      }
+    () => !!activeId.value && blobGeo(state) !== null,
+    (on) => {
+      blobH.set(on ? STEM : 0);
     },
     [state],
   );
 
-  const attachP = useDerivedValue(() => stemEase(blobH.value / STEM));
-
   const maskL = useDerivedValue(() => {
     const g = blobGeo(state);
     if (!g) return CORNER;
-    return Math.max(0, CORNER - attachP.value * (CORNER - cornerR(g.dl)));
+    return Math.max(0, CORNER - attachOf(state, g) * (CORNER - cornerR(g.dl)));
   });
   const maskR = useDerivedValue(() => {
     const g = blobGeo(state);
     if (!g) return CORNER;
-    return Math.max(0, CORNER - attachP.value * (CORNER - cornerR(g.dr)));
+    return Math.max(0, CORNER - attachOf(state, g) * (CORNER - cornerR(g.dr)));
   });
 
   // EXP-8: publish live mask radii so hall pages' own top corners match,
@@ -554,14 +535,18 @@ export default function HallTabBar() {
 function LiquidBlob({ state }: { state: BarState }) {
   const geo = useDerivedValue(() => blobGeo(state));
   const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
+  const a = useDerivedValue(() => attachOf(state, geo.value));
 
   const boxStyle = useAnimatedStyle(() => {
     const w = Math.max(0, state.blobR.value - state.blobL.value);
-    const stemH = STEM * stemEase(p.value);
-    // Always reach the hall card (+2px overlap) so a hairline of chrome
-    // never shows while the tab pours.
-    const h = CHIP_H * p.value + stemH + (p.value > 0.01 ? 2 : 0);
+    const stemH = STEM * a.value;
+    // Reach 2px into the hall card while joined so a hairline of chrome never
+    // shows while the tab pours; fades with the stem as it pinches off.
+    const h = CHIP_H * p.value + stemH + 2 * a.value;
     const g = geo.value;
+    // As the stem pinches off, its bottom corners round back to the chip's
+    // own radius so it retracts like a droplet and leaves a plain chip.
+    const free = CHIP_RADIUS * (1 - a.value);
     return {
       left: state.blobL.value,
       width: w,
@@ -569,10 +554,9 @@ function LiquidBlob({ state }: { state: BarState }) {
       backgroundColor: blobColorOf(state),
       borderTopLeftRadius: CHIP_RADIUS,
       borderTopRightRadius: CHIP_RADIUS,
-      borderBottomLeftRadius: g ? Math.min(stemH, overhangStemR(-g.dl)) : 0,
-      borderBottomRightRadius: g ? Math.min(stemH, overhangStemR(-g.dr)) : 0,
+      borderBottomLeftRadius: (g ? Math.min(stemH, overhangStemR(-g.dl)) : 0) * a.value + free,
+      borderBottomRightRadius: (g ? Math.min(stemH, overhangStemR(-g.dr)) : 0) * a.value + free,
       opacity: p.value > 0.02 ? 1 : 0,
-      transform: [{ scaleY: state.squash.value }],
     };
   });
 
@@ -581,14 +565,14 @@ function LiquidBlob({ state }: { state: BarState }) {
 
 function JoinStrip({ state, chrome }: { state: BarState; chrome: string }) {
   const geo = useDerivedValue(() => blobGeo(state));
-  const p = useDerivedValue(() => clamp01(state.blobH.value / STEM));
-  const earL = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dl) : 0));
-  const earR = useDerivedValue(() => (geo.value ? earEase(p.value) * filletR(geo.value.dr) : 0));
+  const e = useDerivedValue(() => earsOf(state, geo.value));
+  const earL = useDerivedValue(() => (geo.value ? earEase(e.value) * filletR(geo.value.dl) : 0));
+  const earR = useDerivedValue(() => (geo.value ? earEase(e.value) * filletR(geo.value.dr) : 0));
 
   const stripStyle = useAnimatedStyle(() => ({
     left: state.blobL.value - state.scrollX.value,
     width: Math.max(0, state.blobR.value - state.blobL.value),
-    opacity: p.value > 0.02 ? 1 : 0,
+    opacity: e.value > 0.02 ? 1 : 0,
   }));
 
   const earLStyle = useAnimatedStyle(() => {
@@ -684,7 +668,7 @@ function GutterEar({
     const g = blobGeo(state);
     if (!g) return 0;
     const o = side === 'left' ? -g.dl : -g.dr;
-    return earEase(state.blobH.value / STEM) * gutterEarR(o);
+    return earEase(earsOf(state, g)) * gutterEarR(o);
   });
   const boxStyle = useAnimatedStyle(() => {
     const s = size.value;
@@ -781,7 +765,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     pointerEvents: 'none',
     zIndex: 0,
-    transformOrigin: 'bottom',
   },
   chip: {
     height: CHIP_H,
