@@ -1,4 +1,5 @@
 export type HallId = 'mcconnell' | 'frary' | 'hoch' | 'malott' | 'collins' | 'frank' | 'oldenborg';
+export type DiningTabId = 'overview' | HallId;
 
 export interface DiningHall {
   id: HallId;
@@ -129,6 +130,11 @@ export function hallIdFromParts(parts: readonly string[]): HallId | undefined {
   for (const part of parts) {
     if (Object.hasOwn(HALL_BY_ID, part)) return part as HallId;
   }
+}
+
+export function diningTabIdFromParts(parts: readonly string[]): DiningTabId | undefined {
+  if (parts.includes('overview')) return 'overview';
+  return hallIdFromParts(parts);
 }
 
 /** Single-line chip label. Hyphenated names (Hoch-Shanahan) keep the first part. */

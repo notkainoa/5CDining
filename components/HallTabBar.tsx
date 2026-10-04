@@ -24,7 +24,7 @@ import {
   useFlight,
   useTopCorners,
 } from '@/components/HallChrome';
-import { HALL_BY_ID, hallChipName, orderedHalls, type DiningHall } from '@/lib/diningHalls';
+import { HALL_BY_ID, hallChipName, orderedHalls } from '@/lib/diningHalls';
 import { useDim } from '@/lib/dim';
 import { usePrefs } from '@/lib/settings';
 import { usePagerProgress, usePrep, useTabNav } from '@/lib/tabNav';
@@ -58,10 +58,20 @@ const DETACH_W = 1;
 /** Theme.darkerGray under Theme.overlay, for the masks while the bar is dimmed. */
 const DIMMED_CHROME = '#0f0f0f';
 const FALLBACK_COLOR = '#228be6';
+const OVERVIEW_COLOR = Theme.darkGray;
 
 const HALL_COLOR: Record<string, string> = Object.fromEntries(
   Object.entries(HALL_BY_ID).map(([id, hall]) => [id, hall.color]),
 );
+HALL_COLOR.overview = OVERVIEW_COLOR;
+
+interface TabChip {
+  id: string;
+  label: string;
+  name: string;
+  color: string;
+  onColor: string;
+}
 
 /** Same critically damped spring on both edges so width never balloons past the chips. */
 const MOVE_SPRING = { duration: 380, dampingRatio: 1 };
@@ -209,9 +219,27 @@ export default function HallTabBar() {
   const { hallOrder } = usePrefs();
   const { activeKey, lastHallId, navigate } = useTabNav();
   const { dimmed, dismiss } = useDim();
-  const halls = orderedHalls(hallOrder);
-  const activeHall = activeKey in HALL_BY_ID ? activeKey : lastHallId;
-  const startColor = HALL_BY_ID[activeHall as keyof typeof HALL_BY_ID]?.color ?? FALLBACK_COLOR;
+  const tabs = useMemo<TabChip[]>(
+    () => [
+      {
+        id: 'overview',
+        label: 'Overview',
+        name: 'Dining overview',
+        color: OVERVIEW_COLOR,
+        onColor: Theme.white,
+      },
+      ...orderedHalls(hallOrder).map((hall) => ({
+        id: hall.id,
+        label: hallChipName(hall),
+        name: hall.name,
+        color: hall.color,
+        onColor: hall.onColor,
+      })),
+    ],
+    [hallOrder],
+  );
+  const activeTab = activeKey === 'overview' || activeKey in HALL_BY_ID ? activeKey : lastHallId;
+  const startColor = HALL_COLOR[activeTab] ?? FALLBACK_COLOR;
 
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const layoutsRef = useRef<Record<string, ChipLayout>>({});
@@ -220,10 +248,10 @@ export default function HallTabBar() {
   const scrollX = useSharedValue(0);
   const barW = useSharedValue(0);
   const layouts = useSharedValue<Record<string, ChipLayout>>({});
-  const activeId = useSharedValue(activeHall);
+  const activeId = useSharedValue(activeTab);
   const blobL = useSharedValue(0);
   const blobR = useSharedValue(0);
-  const blobH = useSharedValue(activeHall ? STEM : 0);
+  const blobH = useSharedValue(activeTab ? STEM : 0);
   const fromCol = useSharedValue(startColor);
   const toCol = useSharedValue(startColor);
   const colorT = useSharedValue(1);
@@ -264,8 +292,8 @@ export default function HallTabBar() {
   const progressCtx = usePagerProgress();
   const orderSV = useSharedValue<string[]>([]);
   useEffect(() => {
-    orderSV.set(halls.map((h) => h.id));
-  }, [halls, orderSV]);
+    orderSV.set(tabs.map((tab) => tab.id));
+  }, [tabs, orderSV]);
 
   useAnimatedReaction(
     () => ({
@@ -328,20 +356,20 @@ export default function HallTabBar() {
   );
 
   useEffect(() => {
-    activeId.set(activeHall);
-  }, [activeHall, activeId]);
+    activeId.set(activeTab);
+  }, [activeTab, activeId]);
 
   const onChipLayout = useCallback(
     (id: string, x: number, w: number) => {
       layoutsRef.current[id] = { x, w };
       layouts.set({ ...layoutsRef.current });
       layoutGen.set(layoutGen.value + 1);
-      if (id === activeHall && blobR.value - blobL.value < 0.5) {
+      if (id === activeTab && blobR.value - blobL.value < 0.5) {
         blobL.set(x);
         blobR.set(x + w);
       }
     },
-    [layouts, layoutGen, activeHall, blobL, blobR],
+    [layouts, layoutGen, activeTab, blobL, blobR],
   );
 
   const onScroll = useAnimatedScrollHandler((e) => {
@@ -524,12 +552,12 @@ export default function HallTabBar() {
         scrollEventThrottle={16}
       >
         <LiquidBlob state={state} />
-        {halls.map((h) => (
+        {tabs.map((tab) => (
           <Chip
-            key={h.id}
-            hall={h}
-            active={activeHall === h.id}
-            onPress={() => navigate(h.id)}
+            key={tab.id}
+            tab={tab}
+            active={activeTab === tab.id}
+            onPress={() => navigate(tab.id)}
             onLayout={onChipLayout}
           />
         ))}
@@ -611,17 +639,17 @@ function JoinStrip({ state, chrome }: { state: BarState; chrome: string }) {
 }
 
 function Chip({
-  hall,
+  tab,
   active,
   onPress,
   onLayout,
 }: {
-  hall: DiningHall;
+  tab: TabChip;
   active: boolean;
   onPress: () => void;
   onLayout: (id: string, x: number, w: number) => void;
 }) {
-  const id = hall.id;
+  const id = tab.id;
   const pressScale = useSharedValue(1);
 
   const chipStyle = useAnimatedStyle(() => ({
@@ -631,7 +659,7 @@ function Chip({
   return (
     <Animated.View
       collapsable={false}
-      style={[styles.chip, { backgroundColor: hall.color, opacity: active ? 1 : 0.92 }, chipStyle]}
+      style={[styles.chip, { backgroundColor: tab.color, opacity: active ? 1 : 0.92 }, chipStyle]}
       onLayout={(e) => {
         const { x, width } = e.nativeEvent.layout;
         queueMicrotask(() => onLayout(id, x, width));
@@ -640,7 +668,7 @@ function Chip({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ selected: active }}
-        accessibilityLabel={hall.name}
+        accessibilityLabel={tab.name}
         onPress={() => {
           pressScale.set(1);
           onPress();
@@ -653,8 +681,8 @@ function Chip({
         }}
         style={styles.chipHit}
       >
-        <Text style={[styles.label, { color: hall.onColor }]} numberOfLines={1}>
-          {hallChipName(hall)}
+        <Text style={[styles.label, { color: tab.onColor }]} numberOfLines={1}>
+          {tab.label}
         </Text>
       </Pressable>
     </Animated.View>

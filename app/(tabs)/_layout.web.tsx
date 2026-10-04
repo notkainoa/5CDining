@@ -8,7 +8,7 @@ import { AppShell, HallChrome } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
-import { hallIdFromParts } from '@/lib/diningHalls';
+import { diningTabIdFromParts } from '@/lib/diningHalls';
 import { usePrefs } from '@/lib/settings';
 import { TabNavProvider } from '@/lib/tabNav';
 
@@ -31,7 +31,8 @@ function TabLayoutWebInner() {
   const pathname = usePathname();
   const segments = useSegments();
   const router = useRouter();
-  const activeKey = hallIdFromParts(pathname.split('/')) ?? hallIdFromParts(segments) ?? '';
+  const activeKey =
+    diningTabIdFromParts(pathname.split('/')) ?? diningTabIdFromParts(segments) ?? '';
 
   const navigate = useCallback(
     (name: string) => {
@@ -52,6 +53,7 @@ function TabLayoutWebInner() {
           <HallTabBar />
           <View style={styles.fill}>
             <Tabs tabBar={() => null} screenOptions={{ headerShown: false }}>
+              <Tabs.Screen name="overview" options={{ title: 'Overview' }} />
               <Tabs.Screen name="mcconnell" options={{ title: 'McConnell' }} />
               <Tabs.Screen name="frary" options={{ title: 'Frary' }} />
               <Tabs.Screen name="hoch" options={{ title: 'Hoch-Shanahan' }} />

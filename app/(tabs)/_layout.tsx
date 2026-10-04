@@ -10,7 +10,12 @@ import { AppShell, HallChrome } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { DimProvider } from '@/lib/dim';
 import { DayProvider } from '@/lib/day';
-import { hallIdFromParts, orderedHalls, type HallId } from '@/lib/diningHalls';
+import {
+  diningTabIdFromParts,
+  orderedHalls,
+  type DiningTabId,
+  type HallId,
+} from '@/lib/diningHalls';
 import {
   createNativeHallRouteState,
   observeNativeHallRoute,
@@ -26,8 +31,10 @@ import MalottPage from './malott';
 import CollinsPage from './collins';
 import FrankPage from './frank';
 import OldenborgPage from './oldenborg';
+import OverviewPage from './overview';
 
 const PAGES = {
+  overview: OverviewPage,
   mcconnell: McConnellPage,
   frary: FraryPage,
   hoch: HochPage,
@@ -56,8 +63,11 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
   const segments = useSegments();
   const pagerRef = useRef<NativePagerHandle>(null);
 
-  const order = useMemo(() => orderedHalls(hallOrder).map((hall) => hall.id), [hallOrder]);
-  const routedHall = hallIdFromParts(segments);
+  const order = useMemo<DiningTabId[]>(
+    () => ['overview', ...orderedHalls(hallOrder).map((hall) => hall.id)],
+    [hallOrder],
+  );
+  const routedHall = diningTabIdFromParts(segments);
   const [initialState] = useState(() => createNativeHallRouteState(routedHall, order));
   const routeStateRef = useRef(initialState);
   const [activeKey, setActiveKey] = useState(initialState.activeHall);
@@ -79,7 +89,7 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
   const navigate = useCallback(
     (name: string) => {
       if (name === routeStateRef.current.activeHall) return;
-      const hall = name as HallId;
+      const hall = name as DiningTabId;
       const i = order.indexOf(hall);
       if (i >= 0) {
         prep.set(1);
@@ -94,7 +104,7 @@ function LoadedTabLayoutNative({ hallOrder }: { hallOrder: HallId[] }) {
   const pages = useMemo(
     () =>
       order.map((name) => {
-        const Page = PAGES[name as keyof typeof PAGES];
+        const Page = PAGES[name];
         return (
           <View key={name} collapsable={false} style={styles.fill}>
             <Page />
