@@ -42,3 +42,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+.claude/settings.local.json*
+trajector-doctor-*.tar.gz
+trajector-doctor-*/
