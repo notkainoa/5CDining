@@ -31,6 +31,12 @@ import { Theme } from '@/constants/Theme';
 
 const BACK_SYMBOL = { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' } as const;
 
+const CHEVRON_SYMBOL = {
+  ios: 'chevron.right',
+  android: 'chevron_right',
+  web: 'chevron_right',
+} as const;
+
 const DIET_FILTERS = [
   { key: 'veganOnly', label: 'Vegan', badge: 'vegan' },
   { key: 'vegetarianOnly', label: 'Vegetarian', badge: 'vegetarian' },
@@ -258,6 +264,20 @@ export default function SettingsScreen() {
               <Text style={styles.link}>five-c-menu-api.kainoanewton.workers.dev</Text>
             </Pressable>
           </View>
+
+          <View style={styles.card}>
+            <Text style={styles.section}>Legal</Text>
+            <LinkRow
+              label="Privacy Policy"
+              hint="What the app stores and what it sends."
+              onPress={() => router.push('/privacy')}
+            />
+            <LinkRow
+              label="Support"
+              hint="Report a problem or get in touch."
+              onPress={() => router.push('/support')}
+            />
+          </View>
         </ScrollView>
       </View>
     </View>
@@ -393,6 +413,29 @@ function Row({
       <View style={[styles.switch, { backgroundColor: value ? Theme.vegan : Theme.gray }]}>
         <View style={[styles.knob, { alignSelf: value ? 'flex-end' : 'flex-start' }]} />
       </View>
+    </Pressable>
+  );
+}
+
+function LinkRow({ label, hint, onPress }: { label: string; hint: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+    >
+      <View style={styles.rowText}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowHint}>{hint}</Text>
+      </View>
+      <SymbolView
+        name={CHEVRON_SYMBOL}
+        tintColor={Theme.gray}
+        size={16}
+        weight={{ ios: 'semibold', android: mediumWeight }}
+      />
     </Pressable>
   );
 }
@@ -537,6 +580,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowDisabled: { opacity: 0.4 },
+  rowPressed: { opacity: 0.6 },
   rowText: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 15, fontWeight: '600', color: Theme.black },
   rowHint: { fontSize: 12, color: Theme.foodItem },

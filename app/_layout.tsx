@@ -83,6 +83,24 @@ function RootLayoutNav() {
                 fullScreenGestureEnabled: true,
               }}
             />
+            <Stack.Screen
+              name="privacy"
+              options={{
+                headerShown: false,
+                animation: 'default',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: true,
+              }}
+            />
+            <Stack.Screen
+              name="support"
+              options={{
+                headerShown: false,
+                animation: 'default',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: true,
+              }}
+            />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
         </ThemeProvider>
