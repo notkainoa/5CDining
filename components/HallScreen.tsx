@@ -503,7 +503,7 @@ function DietLabels({
       {isGlutenFree(item) ? <DietBadge kind="glutenFree" /> : null}
       {item.plantBased && !item.vegan ? <DietBadge kind="plantBased" /> : null}
       {showCalories && typeof item.calories === 'number' ? (
-        <Text style={styles.label}>{item.calories} cal</Text>
+        <Text style={styles.label}>{Math.round(item.calories)} cal</Text>
       ) : null}
       {children}
     </View>
