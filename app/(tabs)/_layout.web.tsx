@@ -51,7 +51,9 @@ function TabLayoutWebInner() {
         <HallChrome>
           <HallTabBar />
           <View style={styles.fill}>
-            <Tabs tabBar={() => null} screenOptions={{ headerShown: false }}>
+            {/* "history" makes each hall switch a browser history entry, so
+                Back returns to the previous hall instead of leaving the app. */}
+            <Tabs tabBar={() => null} backBehavior="history" screenOptions={{ headerShown: false }}>
               <Tabs.Screen name="mcconnell" options={{ title: 'McConnell' }} />
               <Tabs.Screen name="frary" options={{ title: 'Frary' }} />
               <Tabs.Screen name="hoch" options={{ title: 'Hoch-Shanahan' }} />
