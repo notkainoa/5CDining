@@ -140,18 +140,25 @@ function SearchScreenInner() {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [dismiss]);
 
+  const loadId = useRef(0);
+
   const load = useCallback(async () => {
+    // Loads can overlap (favorites change while one is in flight); only the
+    // latest may touch state, so a stale failure can't wipe newer results.
+    const id = ++loadId.current;
     setLoading(true);
     setFailed(false);
     try {
-      setIndex(await loadSearchIndex(prefs.favorites));
+      const hits = await loadSearchIndex(prefs.favorites);
+      if (loadId.current === id) setIndex(hits);
     } catch {
+      if (loadId.current !== id) return;
       // Drop any earlier index: after a day rollover its "Today" hits are stale.
       // A null index also shows the Retry card.
       setIndex(null);
       setFailed(true);
     } finally {
-      setLoading(false);
+      if (loadId.current === id) setLoading(false);
     }
   }, [prefs.favorites]);
 
