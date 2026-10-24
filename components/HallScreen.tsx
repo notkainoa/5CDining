@@ -204,8 +204,11 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     setPicker('meal');
   };
 
+  // `menu` keeps the last loaded date while a new one loads or fails, so hide
+  // the meal row (name and hours) until the current request settles.
+  const showMeal = !loading && !error && meals.length > 0;
   const meal = meals[mealIndex];
-  const hours = meal ? mealHoursCompact(meal) : null;
+  const hours = showMeal && meal ? mealHoursCompact(meal) : null;
 
   return (
     <View style={styles.page}>
@@ -237,7 +240,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
           style={[styles.mealRow, picker === 'meal' && styles.raiseOn]}
           pointerEvents="box-none"
         >
-          {!loading && !error && meals.length > 0 ? (
+          {showMeal ? (
             <Pressable
               onPress={openMealPicker}
               style={[styles.mealHit, picker === 'meal' && styles.triggerOn]}
