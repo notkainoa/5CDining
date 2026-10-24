@@ -49,6 +49,28 @@ function inferredMealPeriod(meal: Meal): MealPeriod | null {
   }
 }
 
+/** Typical Claremont service windows, used only when a hall publishes no times. */
+const TYPICAL_MEAL_TIMES: Record<MealPeriod, { startTime: string; endTime: string }> = {
+  breakfast: { startTime: '07:00', endTime: '10:30' },
+  brunch: { startTime: '10:00', endTime: '14:00' },
+  lunch: { startTime: '11:00', endTime: '14:00' },
+  dinner: { startTime: '17:00', endTime: '20:00' },
+  late_night: { startTime: '21:00', endTime: '23:59' },
+};
+
+/**
+ * Hoch publishes meals without start/end times, so the live-meal picker would
+ * always open Breakfast. When no meal on the menu has a time, fill in typical
+ * windows from each meal's period. Menus with any published time pass through.
+ */
+export function withTypicalMealTimes(meals: Meal[]): Meal[] {
+  if (meals.some((meal) => meal.startTime)) return meals;
+  return meals.map((meal) => {
+    const period = inferredMealPeriod(meal);
+    return period ? { ...meal, ...TYPICAL_MEAL_TIMES[period] } : meal;
+  });
+}
+
 export function mealSelectionIntent(meal: Meal): MealSelectionIntent {
   return { service: mealKey(meal), period: inferredMealPeriod(meal) };
 }

@@ -7,6 +7,7 @@ import {
   mealIndexForSelection,
   mealSelectionIntent,
   shouldClearMealSelection,
+  withTypicalMealTimes,
 } from '../lib/mealSelection.ts';
 
 const meal = (name, period) => ({ name, period, stations: [] });
@@ -199,4 +200,25 @@ test('keeps an explicit meal when its date moves within the refreshed window', (
 
 test('clears the explicit meal only when its selected date expires', () => {
   assert.equal(shouldClearMealSelection({ windowShifted: true, selectedDateKept: false }), true);
+});
+
+test('meals without published times get typical windows from their period', () => {
+  const meals = [meal('BREAKFAST', 'breakfast'), meal('LUNCH', 'lunch'), meal('DINNER', 'dinner')];
+  const timed = withTypicalMealTimes(meals);
+  assert.deepEqual(
+    timed.map((m) => [m.startTime, m.endTime]),
+    [
+      ['07:00', '10:30'],
+      ['11:00', '14:00'],
+      ['17:00', '20:00'],
+    ],
+  );
+});
+
+test('menus with any published time are left unchanged', () => {
+  const meals = [
+    { ...meal('Breakfast', 'breakfast'), startTime: '07:30' },
+    meal('Dinner', 'dinner'),
+  ];
+  assert.equal(withTypicalMealTimes(meals), meals);
 });

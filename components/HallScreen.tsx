@@ -37,6 +37,7 @@ import {
   mealIndexForSelection,
   mealSelectionIntent,
   sameMealSelection,
+  withTypicalMealTimes,
   type AutomaticMealObservation,
 } from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
@@ -93,7 +94,12 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
 
   const autoIndex = useMemo(
-    () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
+    () =>
+      meals.length === 0
+        ? 0
+        : selected === 0
+          ? pickCurrentMeal(withTypicalMealTimes(meals), nowMinutes)
+          : 0,
     [meals, selected, nowMinutes],
   );
   const mealIndex = useMemo(
