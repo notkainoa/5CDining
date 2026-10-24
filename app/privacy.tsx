@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
+import { ExternalLink } from '@/components/ExternalLink';
 import LegalPage, { LegalParagraph, LegalSection, legalLinkStyle } from '@/components/LegalPage';
 import { Theme } from '@/constants/Theme';
 
@@ -9,14 +10,16 @@ export default function PrivacyScreen() {
   return (
     <LegalPage
       title="Privacy Policy"
-      description="5C Dining collects no personal data. Preferences stay on your device."
+      description="5C Dining has no accounts, analytics, or ads. Preferences stay on your device."
     >
       <Text style={styles.effective}>Effective {EFFECTIVE}</Text>
 
       <LegalSection title="What we collect">
         <LegalParagraph>
-          Nothing. 5C Dining has no accounts and no sign-in. It has no analytics, no advertising,
-          and no third-party SDKs that collect data. We don&apos;t know who you are.
+          Nothing that identifies you. 5C Dining has no accounts and no sign-in. It has no
+          analytics, no advertising, and no third-party SDKs that collect data. The only information
+          that leaves your device is the standard request information any web server sees when the
+          app loads menus (your IP address and user agent), described under Network requests below.
         </LegalParagraph>
       </LegalSection>
 
@@ -37,7 +40,12 @@ export default function PrivacyScreen() {
           dining hall and date you&apos;re viewing. Like any web server, the API receives the
           standard request information: your IP address and user agent. It does not store that
           beyond ordinary operational logs, and it is not used to identify or track you. The web
-          version of the app is also served through Cloudflare.
+          version of the app is also served through Cloudflare. Cloudflare processes these requests
+          as our hosting provider under its{' '}
+          <ExternalLink href="https://www.cloudflare.com/privacypolicy/" style={legalLinkStyle}>
+            privacy policy
+          </ExternalLink>
+          .
         </LegalParagraph>
       </LegalSection>
 
@@ -70,9 +78,9 @@ export default function PrivacyScreen() {
             k@kainoa.me
           </Link>
           . The source code is at{' '}
-          <Link href="https://github.com/notkainoa/5CDining" target="_blank" style={legalLinkStyle}>
+          <ExternalLink href="https://github.com/notkainoa/5CDining" style={legalLinkStyle}>
             github.com/notkainoa/5CDining
-          </Link>
+          </ExternalLink>
           .
         </LegalParagraph>
       </LegalSection>

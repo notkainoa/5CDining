@@ -1,4 +1,5 @@
 import { Link } from 'expo-router';
+import { ExternalLink } from '@/components/ExternalLink';
 import LegalPage, { LegalParagraph, LegalSection, legalLinkStyle } from '@/components/LegalPage';
 
 export default function SupportScreen() {
@@ -20,13 +21,9 @@ export default function SupportScreen() {
             k@kainoa.me
           </Link>{' '}
           or open an issue on{' '}
-          <Link
-            href="https://github.com/notkainoa/5CDining/issues"
-            target="_blank"
-            style={legalLinkStyle}
-          >
+          <ExternalLink href="https://github.com/notkainoa/5CDining/issues" style={legalLinkStyle}>
             GitHub
-          </Link>
+          </ExternalLink>
           . Tell us what you were doing, which dining hall and date, and your device if you can.
         </LegalParagraph>
       </LegalSection>
