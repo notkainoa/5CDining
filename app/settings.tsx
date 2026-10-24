@@ -188,7 +188,7 @@ export default function SettingsScreen() {
                 />
               ))}
             </View>
-            <Text style={styles.subSection}>Hide dishes with these ingredients</Text>
+            <Text style={styles.subSection}>Gray out dishes with these ingredients</Text>
             <Text style={styles.hint}>
               Highlights above lock matching ingredients on. Collins, Malott, and McConnell do not
               publish ingredient lists.
