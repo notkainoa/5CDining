@@ -55,8 +55,10 @@ test('Hoch BAKERY is dessert at lunch/dinner but breakfast pastry at breakfast/b
   assert.equal(isDessertStation('hoch', undefined, 'BAKERY'), false);
 });
 
-test('McConnell ovens is dessert at lunch/dinner only; elsewhere ovens is pizza', () => {
+test('McConnell ovens is dessert at lunch/dinner/late night only; elsewhere ovens is pizza', () => {
+  assert.equal(isDessertStation('mcconnell', 'lunch', 'ovens'), true);
   assert.equal(isDessertStation('mcconnell', 'dinner', 'ovens'), true);
+  assert.equal(isDessertStation('mcconnell', 'late_night', 'ovens'), true);
   assert.equal(isDessertStation('mcconnell', 'breakfast', 'ovens'), false);
   assert.equal(isDessertStation('mcconnell', 'brunch', 'ovens'), false);
   assert.equal(isDessertStation('collins', 'dinner', 'Ovens'), false);
