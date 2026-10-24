@@ -141,6 +141,12 @@ function SearchScreenInner() {
   }, [dismiss]);
 
   const loadId = useRef(0);
+  // Read by the focus effect through a ref so a failed reload (index -> null)
+  // doesn't change its deps and trigger a second batch of requests.
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
 
   const load = useCallback(async () => {
     // Loads can overlap (favorites change while one is in flight); only the
@@ -165,11 +171,11 @@ function SearchScreenInner() {
   useFocusEffect(
     useCallback(() => {
       const key = dayKey(todayInLA());
-      if (index === null || loadedDay.current !== key) {
+      if (indexRef.current === null || loadedDay.current !== key) {
         loadedDay.current = key;
         load();
       }
-    }, [index, load]),
+    }, [load]),
   );
 
   const favSet = useMemo(() => new Set(prefs.favorites.map(favoriteId)), [prefs.favorites]);
