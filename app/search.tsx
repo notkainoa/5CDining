@@ -146,6 +146,9 @@ function SearchScreenInner() {
     try {
       setIndex(await loadSearchIndex(prefs.favorites));
     } catch {
+      // Drop any earlier index: after a day rollover its "Today" hits are stale.
+      // A null index also shows the Retry card.
+      setIndex(null);
       setFailed(true);
     } finally {
       setLoading(false);
