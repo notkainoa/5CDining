@@ -168,7 +168,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         setMenu(data);
       } catch (e) {
         if (reqId.current !== id) return;
-        setError(e instanceof Error ? e.message : 'Could not load menu');
+        setError(loadErrorMessage(e));
       } finally {
         if (reqId.current === id) {
           setLoading(false);
@@ -508,6 +508,18 @@ function DietLabels({
       {children}
     </View>
   );
+}
+
+/**
+ * fetchHallMenu throws "Menu request failed (503)" for HTTP errors; anything
+ * else is the platform's network error ("Failed to fetch", "Network request
+ * failed"). Neither is worth showing verbatim.
+ */
+function loadErrorMessage(e: unknown): string {
+  if (e instanceof Error && e.message.startsWith('Menu request failed')) {
+    return "This hall's menu source isn't responding right now. Try again in a bit.";
+  }
+  return 'Check your connection and try again.';
 }
 
 /**
