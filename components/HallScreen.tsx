@@ -513,15 +513,17 @@ function DietLabels({
 }
 
 /**
- * fetchHallMenu throws "Menu request failed (503)" for HTTP errors; anything
- * else is the platform's network error ("Failed to fetch", "Network request
- * failed"). Neither is worth showing verbatim.
+ * fetchHallMenu throws "Menu request failed (503)" for HTTP errors, fetch
+ * rejects with a TypeError ("Failed to fetch", "Network request failed") when
+ * offline, and a malformed body throws a SyntaxError. None is worth showing
+ * verbatim, and only the TypeError means the connection is at fault.
  */
 function loadErrorMessage(e: unknown): string {
   if (e instanceof Error && e.message.startsWith('Menu request failed')) {
     return "This hall's menu source isn't responding right now. Try again in a bit.";
   }
-  return 'Check your connection and try again.';
+  if (e instanceof TypeError) return 'Check your connection and try again.';
+  return "Couldn't read this hall's menu. Try again in a bit.";
 }
 
 /**
