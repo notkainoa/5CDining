@@ -432,7 +432,9 @@ function MealBody({
       {prefs.glutenFreeOnly && !glutenFreeOnly ? (
         <Text style={styles.filterNote}>No gluten-free labels for this hall.</Text>
       ) : null}
-      {allergenFilterOn && !hallPublishesAllergens(hallId) ? (
+      {/* Only for allergens the user picked: a diet highlight's implied
+          allergens still work here through the dish's diet flags. */}
+      {prefs.avoidedAllergens.length > 0 && !hallPublishesAllergens(hallId) ? (
         <Text style={styles.filterNote}>No allergen list for this hall.</Text>
       ) : null}
       {meal.stations.map((st, si) => {
