@@ -8,7 +8,7 @@
     "icon": "./assets/images/icon_main.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "me.kainoa.dining5c",
       "buildNumber": "1",
       "icon": "./assets/images/icon_main.png",
