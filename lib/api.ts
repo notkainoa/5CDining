@@ -1,5 +1,6 @@
 import type { HallId } from './diningHalls';
 import type { Allergen } from './allergens';
+import { moveDessertStationsLast } from './stations.ts';
 
 const BASE = 'https://five-c-menu-api.kainoanewton.workers.dev';
 
@@ -58,7 +59,7 @@ export function formatYMDForApi(d: Date): string {
 }
 
 /**
- * Fetch one hall + one date.
+ * Fetch one hall + one date. Dessert stations are moved to the end of each meal.
  * 400/404 (including "date must be today or tomorrow") map to `unavailable`
  * so the screen can show the empty state instead of a hard error.
  * Other HTTP/network failures still throw.
@@ -83,7 +84,12 @@ export async function fetchHallMenu(hall: HallId, date: Date): Promise<HallMenu>
     };
   }
   if (!res.ok) throw new Error(`Menu request failed (${res.status})`);
-  return (await res.json()) as HallMenu;
+  const menu = (await res.json()) as HallMenu;
+  // Dessert ordering needs the hall id, which mergeStations (called from the
+  // screens) does not have. mergeStations keeps first-seen order, so this holds.
+  return menu.meals
+    ? { ...menu, meals: menu.meals.map((m) => moveDessertStationsLast(hall, m)) }
+    : menu;
 }
 
 /** "07:30" -> "7:30 AM", "17:00" -> "5:00 PM". Pass through anything unexpected. */
