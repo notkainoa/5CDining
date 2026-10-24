@@ -34,9 +34,11 @@ import { Theme } from '@/constants/Theme';
 import { useDay } from '@/lib/day';
 import {
   automaticMealSelection,
+  firstMealWithDishes,
   mealIndexForSelection,
   mealSelectionIntent,
   sameMealSelection,
+  withTypicalMealTimes,
   type AutomaticMealObservation,
 } from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
@@ -93,7 +95,12 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
 
   const autoIndex = useMemo(
-    () => (meals.length === 0 ? 0 : selected === 0 ? pickCurrentMeal(meals, nowMinutes) : 0),
+    () =>
+      meals.length === 0
+        ? 0
+        : selected === 0
+          ? pickCurrentMeal(withTypicalMealTimes(meals), nowMinutes)
+          : firstMealWithDishes(meals),
     [meals, selected, nowMinutes],
   );
   const mealIndex = useMemo(
@@ -161,7 +168,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         setMenu(data);
       } catch (e) {
         if (reqId.current !== id) return;
-        setError(e instanceof Error ? e.message : 'Could not load menu');
+        setError(loadErrorMessage(e));
       } finally {
         if (reqId.current === id) {
           setLoading(false);
@@ -197,8 +204,11 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     setPicker('meal');
   };
 
+  // `menu` keeps the last loaded date while a new one loads or fails, so hide
+  // the meal row (name and hours) until the current request settles.
+  const showMeal = !loading && !error && meals.length > 0;
   const meal = meals[mealIndex];
-  const hours = meal ? mealHoursCompact(meal) : null;
+  const hours = showMeal && meal ? mealHoursCompact(meal) : null;
 
   return (
     <View style={styles.page}>
@@ -230,7 +240,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
           style={[styles.mealRow, picker === 'meal' && styles.raiseOn]}
           pointerEvents="box-none"
         >
-          {!loading && !error && meals.length > 0 ? (
+          {showMeal ? (
             <Pressable
               onPress={openMealPicker}
               style={[styles.mealHit, picker === 'meal' && styles.triggerOn]}
@@ -422,7 +432,9 @@ function MealBody({
       {prefs.glutenFreeOnly && !glutenFreeOnly ? (
         <Text style={styles.filterNote}>No gluten-free labels for this hall.</Text>
       ) : null}
-      {allergenFilterOn && !hallPublishesAllergens(hallId) ? (
+      {/* Only for allergens the user picked: a diet highlight's implied
+          allergens still work here through the dish's diet flags. */}
+      {prefs.avoidedAllergens.length > 0 && !hallPublishesAllergens(hallId) ? (
         <Text style={styles.filterNote}>No allergen list for this hall.</Text>
       ) : null}
       {meal.stations.map((st, si) => {
@@ -493,11 +505,25 @@ function DietLabels({
       {isGlutenFree(item) ? <DietBadge kind="glutenFree" /> : null}
       {item.plantBased && !item.vegan ? <DietBadge kind="plantBased" /> : null}
       {showCalories && typeof item.calories === 'number' ? (
-        <Text style={styles.label}>{item.calories} cal</Text>
+        <Text style={styles.label}>{Math.round(item.calories)} cal</Text>
       ) : null}
       {children}
     </View>
   );
+}
+
+/**
+ * fetchHallMenu throws "Menu request failed (503)" for HTTP errors, fetch
+ * rejects with a TypeError ("Failed to fetch", "Network request failed") when
+ * offline, and a malformed body throws a SyntaxError. None is worth showing
+ * verbatim, and only the TypeError means the connection is at fault.
+ */
+function loadErrorMessage(e: unknown): string {
+  if (e instanceof Error && e.message.startsWith('Menu request failed')) {
+    return "This hall's menu source isn't responding right now. Try again in a bit.";
+  }
+  if (e instanceof TypeError) return 'Check your connection and try again.';
+  return "Couldn't read this hall's menu. Try again in a bit.";
 }
 
 /**
