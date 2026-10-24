@@ -71,6 +71,12 @@ export function withTypicalMealTimes(meals: Meal[]): Meal[] {
   });
 }
 
+/** First meal that lists at least one dish, else 0. Default for days other than today. */
+export function firstMealWithDishes(meals: Meal[]): number {
+  const i = meals.findIndex((meal) => meal.stations.some((station) => station.items.length > 0));
+  return i >= 0 ? i : 0;
+}
+
 export function mealSelectionIntent(meal: Meal): MealSelectionIntent {
   return { service: mealKey(meal), period: inferredMealPeriod(meal) };
 }

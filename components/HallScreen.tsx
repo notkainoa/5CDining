@@ -34,6 +34,7 @@ import { Theme } from '@/constants/Theme';
 import { useDay } from '@/lib/day';
 import {
   automaticMealSelection,
+  firstMealWithDishes,
   mealIndexForSelection,
   mealSelectionIntent,
   sameMealSelection,
@@ -99,7 +100,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         ? 0
         : selected === 0
           ? pickCurrentMeal(withTypicalMealTimes(meals), nowMinutes)
-          : 0,
+          : firstMealWithDishes(meals),
     [meals, selected, nowMinutes],
   );
   const mealIndex = useMemo(

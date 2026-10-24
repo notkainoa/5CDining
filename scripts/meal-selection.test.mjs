@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   automaticMealSelection,
+  firstMealWithDishes,
   mealKey,
   mealIndexForSelection,
   mealSelectionIntent,
@@ -221,4 +222,15 @@ test('menus with any published time are left unchanged', () => {
     meal('Dinner', 'dinner'),
   ];
   assert.equal(withTypicalMealTimes(meals), meals);
+});
+
+test('first meal with dishes skips empty continental services', () => {
+  const withItems = (name, period) => ({
+    name,
+    period,
+    stations: [{ name: 'Main', items: [{ name: 'Eggs' }] }],
+  });
+  const meals = [meal('Continental Breakfast', 'breakfast'), withItems('Brunch', 'brunch')];
+  assert.equal(firstMealWithDishes(meals), 1);
+  assert.equal(firstMealWithDishes([meal('Breakfast', 'breakfast')]), 0);
 });
