@@ -34,7 +34,7 @@
           "image": "./assets/images/icon_main.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#0b482e"
         }
       ],
       "expo-web-browser",
