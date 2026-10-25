@@ -31,6 +31,7 @@ import {
   useTopCorners,
 } from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
+import { hallCaloriesReliable, isPlausibleCalories } from '@/lib/calories';
 import { useDay } from '@/lib/day';
 import {
   automaticMealSelection,
@@ -346,6 +347,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                 hallId={hallId}
                 meal={meal}
                 hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
+                caloriesReliable={hallCaloriesReliable(meals)}
                 openStations={openStations}
                 setOpenStations={setOpenStations}
               />
@@ -362,12 +364,14 @@ function MealBody({
   hallId,
   meal,
   hasGlutenFree,
+  caloriesReliable,
   openStations,
   setOpenStations,
 }: {
   hallId: HallId;
   meal: Meal;
   hasGlutenFree: boolean;
+  caloriesReliable: boolean;
   openStations: number[];
   setOpenStations: (v: number[] | ((p: number[]) => number[])) => void;
 }) {
@@ -468,7 +472,7 @@ function MealBody({
                     >
                       <View style={styles.itemRow}>
                         <Text style={styles.itemName}>{it.name}</Text>
-                        <DietLabels item={it} showCalories={prefs.showCalories}>
+                        <DietLabels item={it} showCalories={prefs.showCalories && caloriesReliable}>
                           {prefs.favoritesEnabled ? <HeartButton label={it.name} /> : null}
                         </DietLabels>
                       </View>
@@ -504,8 +508,8 @@ function DietLabels({
       ) : null}
       {isGlutenFree(item) ? <DietBadge kind="glutenFree" /> : null}
       {item.plantBased && !item.vegan ? <DietBadge kind="plantBased" /> : null}
-      {showCalories && typeof item.calories === 'number' ? (
-        <Text style={styles.label}>{Math.round(item.calories)} cal</Text>
+      {showCalories && isPlausibleCalories(item.calories, item.name) ? (
+        <Text style={styles.label}>{item.calories} cal</Text>
       ) : null}
       {children}
     </View>
