@@ -140,26 +140,42 @@ function SearchScreenInner() {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [dismiss]);
 
+  const loadId = useRef(0);
+  // Read by the focus effect through a ref so a failed reload (index -> null)
+  // doesn't change its deps and trigger a second batch of requests.
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
   const load = useCallback(async () => {
+    // Loads can overlap (favorites change while one is in flight); only the
+    // latest may touch state, so a stale failure can't wipe newer results.
+    const id = ++loadId.current;
     setLoading(true);
     setFailed(false);
     try {
-      setIndex(await loadSearchIndex(prefs.favorites));
+      const hits = await loadSearchIndex(prefs.favorites);
+      if (loadId.current === id) setIndex(hits);
     } catch {
+      if (loadId.current !== id) return;
+      // Drop any earlier index: after a day rollover its "Today" hits are stale.
+      // A null index also shows the Retry card.
+      setIndex(null);
       setFailed(true);
     } finally {
-      setLoading(false);
+      if (loadId.current === id) setLoading(false);
     }
   }, [prefs.favorites]);
 
   useFocusEffect(
     useCallback(() => {
       const key = dayKey(todayInLA());
-      if (index === null || loadedDay.current !== key) {
+      if (indexRef.current === null || loadedDay.current !== key) {
         loadedDay.current = key;
         load();
       }
-    }, [index, load]),
+    }, [load]),
   );
 
   const favSet = useMemo(() => new Set(prefs.favorites.map(favoriteId)), [prefs.favorites]);

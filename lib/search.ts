@@ -18,7 +18,11 @@ export interface SearchHit {
   fav: boolean;
 }
 
-/** Fetch today + tomorrow for every hall in parallel. Failures yield no hits. */
+/**
+ * Fetch today + tomorrow for every hall in parallel. A failed hall yields no
+ * hits; throws only when every request failed (offline), so the screen can
+ * offer a retry instead of reporting "no matches".
+ */
 export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]> {
   const favIds = new Set(favLabels.map(favoriteId));
   const base = todayInLA();
@@ -33,10 +37,12 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
     for (let di = 0; di < days.length; di++) jobs.push({ hall, di });
   }
 
+  let reached = 0;
   const pages = await Promise.all(
     jobs.map(async ({ hall, di }): Promise<SearchHit[]> => {
       try {
         const menu = await fetchHallMenu(hall.id, days[di]);
+        reached += 1;
         if (menu.status !== 'ok' || !menu.meals) return [];
         const day = (di === 0 ? 'Today' : 'Tomorrow') as 'Today' | 'Tomorrow';
         const dateLabel = `${days[di].getMonth() + 1}/${days[di].getDate()}`;
@@ -67,6 +73,7 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
       }
     }),
   );
+  if (reached === 0) throw new Error('Could not load menus');
   return pages.flat();
 }
 
