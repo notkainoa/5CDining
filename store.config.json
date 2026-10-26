@@ -1,0 +1,75 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.0",
+    "release": {
+      "automaticRelease": true
+    },
+    "info": {
+      "en-US": {
+        "title": "5C Dining: Claremont Menus",
+        "subtitle": "Menus for all 7 dining halls",
+        "description": "5C Dining shows the daily menus for all seven dining halls at the Claremont Colleges in one place:\n\n• McConnell (Pitzer)\n• Frary, Frank and Oldenborg (Pomona)\n• Hoch-Shanahan (Harvey Mudd)\n• Malott (Scripps)\n• Collins (Claremont McKenna)\n\nWhat you can do\n• See today's and upcoming menus, grouped by station, with meal hours.\n• Pick breakfast, brunch, lunch, dinner or late night, and switch days.\n• Search for a dish across every hall at once.\n• Highlight vegan, vegetarian, gluten-free and plant-based dishes.\n• Hide dishes that contain allergens you avoid (egg, milk, peanut, tree nut, soy, wheat, gluten, fish, shellfish, sesame) at halls that publish allergen data.\n• Show or hide calories and dish descriptions.\n• Reorder the halls so the one you use most opens first.\n\nNo account, no sign-in, no ads and no tracking. Settings stay on your device.\n\nMenu data comes from each college's public dining menu page. 5C Dining is an independent student project and is not affiliated with, endorsed by or sponsored by Pomona College, Claremont McKenna College, Harvey Mudd College, Scripps College, Pitzer College or The Claremont Colleges. Menus can change without notice; check with the dining hall for the latest allergen information.",
+        "keywords": [
+          "claremont",
+          "pomona",
+          "pitzer",
+          "scripps",
+          "cmc",
+          "harvey mudd",
+          "dining hall",
+          "menu",
+          "college",
+          "food",
+          "cafeteria",
+          "5c"
+        ],
+        "promoText": "Today's menus for all seven Claremont Colleges dining halls, with dish search and diet and allergen filters.",
+        "supportUrl": "https://5cdining.kainoa.me/support",
+        "privacyPolicyUrl": "https://5cdining.kainoa.me/privacy"
+      }
+    },
+    "advisory": {
+      "ageRatingOverride": "NONE",
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "kidsAgeBand": null,
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false,
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "advertising": false,
+      "ageAssurance": false,
+      "ageRatingOverrideV2": "NONE",
+      "developerAgeRatingInfoUrl": null,
+      "gunsOrOtherWeapons": "NONE",
+      "healthOrWellnessTopics": false,
+      "messagingAndChat": false,
+      "parentalControls": false,
+      "userGeneratedContent": false
+    },
+    "copyright": "2026 Kainoa Newton",
+    "categories": [
+      "FOOD_AND_DRINK",
+      "EDUCATION"
+    ],
+    "review": {
+      "firstName": "Kainoa",
+      "lastName": "Newton",
+      "email": "k@kainoa.me",
+      "phone": "REPLACE_ME",
+      "demoRequired": false,
+      "notes": "5C Dining is an independent student project. It is not affiliated with, endorsed by or sponsored by Pomona College, Claremont McKenna College, Harvey Mudd College, Scripps College, Pitzer College or The Claremont Colleges. This is stated in the app description. The official college seals appear in the app only to identify which school each dining hall belongs to; the app itself (Settings screen), the support page and the App Store description all state that 5C Dining is not affiliated with or endorsed by the colleges.\n\nThe app displays dining hall menus for the seven Claremont Colleges dining halls. Menu data is fetched from the colleges' public menu web pages through the author's own API (https://five-c-menu-api.kainoanewton.workers.dev). The app does not scrape or embed any college website directly.\n\nThere is no login, no account creation and no in-app purchase. A demo account is not needed. All preferences (hall order, dietary highlights, allergen avoids) are stored only on the device. The app collects no data and uses no analytics or advertising SDKs.\n\nTo test: open the app, swipe or tap the hall bar to move between halls, use the meal picker to change meal and day, and open Settings (gear icon) for dietary filters and hall ordering. Menus are only published for the current day and a few days ahead, so some future dates may show \"no menu\" outside the academic term."
+    }
+  }
+}

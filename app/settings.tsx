@@ -232,6 +232,10 @@ export default function SettingsScreen() {
             hint="What the app stores and what it sends."
           />
           <LinkRow href="/support" label="Support" hint="Report a problem or get in touch." />
+          <Text style={styles.hint}>
+            5C Dining is an independent student project. It is not affiliated with or endorsed by
+            the Claremont Colleges. College names and seals identify each dining hall&apos;s school.
+          </Text>
         </View>
       </ScrollView>
     </ScreenShell>
