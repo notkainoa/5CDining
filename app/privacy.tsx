@@ -28,8 +28,7 @@ export default function PrivacyScreen() {
           Your preferences are saved on your device and nowhere else: dining hall order, diet
           highlights, ingredients you avoid, display options, and favorite dishes. The app stores
           them in the app&apos;s local storage (your browser&apos;s local storage on the web
-          version). Your choice of app icon is kept by your phone&apos;s operating system. Deleting
-          the app, or clearing site data on the web, removes it all.
+          version). Deleting the app, or clearing site data on the web, removes it all.
         </LegalParagraph>
       </LegalSection>
 
