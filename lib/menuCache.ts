@@ -31,7 +31,10 @@ function pruneOnceADay(): void {
   const today = formatYMDForApi(todayInLA());
   if (prunedFor === today) return;
   prunedFor = today;
-  void pruneSavedMenus(AsyncStorage, today);
+  // If storage failed, try again on the next load instead of tomorrow.
+  void pruneSavedMenus(AsyncStorage, today).then((ok) => {
+    if (!ok && prunedFor === today) prunedFor = null;
+  });
 }
 
 /**

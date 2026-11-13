@@ -105,8 +105,8 @@ export async function removeSavedMenu(
   }
 }
 
-/** Remove saved menus for days before `todayYmd`. */
-export async function pruneSavedMenus(store: KeyValueStore, todayYmd: string): Promise<void> {
+/** Remove saved menus for days before `todayYmd`. Resolves false if storage failed. */
+export async function pruneSavedMenus(store: KeyValueStore, todayYmd: string): Promise<boolean> {
   try {
     const keys = await store.getAllKeys();
     const old = keys.filter((k) => {
@@ -115,7 +115,8 @@ export async function pruneSavedMenus(store: KeyValueStore, todayYmd: string): P
       return ymd < todayYmd;
     });
     await Promise.all(old.map((k) => store.removeItem(k)));
+    return true;
   } catch {
-    // best-effort
+    return false;
   }
 }

@@ -62,7 +62,7 @@ test('storage failures never throw', async () => {
   };
   await saveMenu(broken, 'frary', '2026-11-13', lunch);
   assert.equal(await readSavedMenu(broken, 'frary', '2026-11-13'), null);
-  await pruneSavedMenus(broken, '2026-11-13');
+  assert.equal(await pruneSavedMenus(broken, '2026-11-13'), false);
 });
 
 test('pruning drops past days and leaves other keys alone', async () => {
