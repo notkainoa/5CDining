@@ -30,6 +30,7 @@ import { CHROME_INSET, CHROME_RADIUS, INNER_CHIP_RADIUS } from '@/components/Hal
 import HeartButton from '@/components/HeartButton';
 import { Theme } from '@/constants/Theme';
 import { todayInLA } from '@/lib/dates';
+import { describeSearchProblem, problemFromError, type MenuProblem } from '@/lib/menuErrors';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import {
   compareOccurrences,
@@ -83,7 +84,7 @@ function SearchScreenInner() {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState<SearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<MenuProblem | null>(null);
   const [resultsH, setResultsH] = useState(0);
   const [wrapH, setWrapH] = useState(0);
   const [headerH, setHeaderH] = useState(0);
@@ -153,16 +154,16 @@ function SearchScreenInner() {
     // latest may touch state, so a stale failure can't wipe newer results.
     const id = ++loadId.current;
     setLoading(true);
-    setFailed(false);
+    setFailed(null);
     try {
       const hits = await loadSearchIndex(prefs.favorites);
       if (loadId.current === id) setIndex(hits);
-    } catch {
+    } catch (e) {
       if (loadId.current !== id) return;
       // Drop any earlier index: after a day rollover its "Today" hits are stale.
       // A null index also shows the Retry card.
       setIndex(null);
-      setFailed(true);
+      setFailed(problemFromError(e).problem);
     } finally {
       if (loadId.current === id) setLoading(false);
     }
@@ -237,7 +238,8 @@ function SearchScreenInner() {
   } else if (failed && index === null) {
     body = (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Couldn&apos;t load menus</Text>
+        <Text style={styles.cardTitle}>{describeSearchProblem(failed).title}</Text>
+        <Text style={styles.hint}>{describeSearchProblem(failed).detail}</Text>
         <Pressable
           onPress={load}
           style={({ pressed }) => [styles.retry, pressed && styles.pressed]}

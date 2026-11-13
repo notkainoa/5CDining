@@ -26,7 +26,9 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
   const gen = (requestGen.get(key) ?? 0) + 1;
   requestGen.set(key, gen);
   const data = await fetchHallMenu(hall, date);
-  if (gen >= (cachedGen.get(key) ?? 0)) {
+  // Only cache real menus. "Not posted yet" or "hall site down" can change
+  // minutes later, so the next visit should ask again instead of replaying it.
+  if (data.status === 'ok' && !data.problem && gen >= (cachedGen.get(key) ?? 0)) {
     setCachedMenu(hall, date, data);
     cachedGen.set(key, gen);
   }

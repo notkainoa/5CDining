@@ -45,7 +45,10 @@ import {
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
-import { loadHallMenu } from '@/lib/menuCache';
+import { getCachedMenu, loadHallMenu } from '@/lib/menuCache';
+import { dateCardLabel } from '@/lib/dates';
+import { describeMenuProblem, problemFromError, type MenuProblem } from '@/lib/menuErrors';
+import { ExternalLink } from '@/components/ExternalLink';
 import { usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
 import { useTabNav } from '@/lib/tabNav';
@@ -88,7 +91,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const [closure, setClosure] = useState<HallClosure | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ problem: MenuProblem; status?: number } | null>(null);
   const [openStations, setOpenStations] = useState<number[]>([]);
   const [picker, setPicker] = useState<null | 'meal'>(null);
   const reqId = useRef(0);
@@ -169,7 +172,14 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         setMenu(data);
       } catch (e) {
         if (reqId.current !== id) return;
-        setError(loadErrorMessage(e));
+        // A failed refresh keeps the menu already on screen for this day
+        // rather than swapping a good menu for an error.
+        const cached = getCachedMenu(hallId, date);
+        if (cached) {
+          setMenu(cached);
+        } else {
+          setError(problemFromError(e));
+        }
       } finally {
         if (reqId.current === id) {
           setLoading(false);
@@ -301,20 +311,6 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                 <ActivityIndicator size="large" color={Theme.darkGray} />
                 <Text style={styles.stateText}>Loading menu…</Text>
               </View>
-            ) : error ? (
-              <View style={styles.state}>
-                <Text style={styles.stateTitle}>Couldn&apos;t load menu</Text>
-                <Text style={styles.stateText}>{error}</Text>
-                <Pressable
-                  onPress={() => {
-                    setLoading(true);
-                    load(true);
-                  }}
-                  style={[styles.retry, { backgroundColor: hall.color }]}
-                >
-                  <Text style={[styles.retryText, { color: hall.onColor }]}>Retry</Text>
-                </Pressable>
-              </View>
             ) : closure ? (
               <View style={styles.state}>
                 <Text style={styles.stateTitle}>
@@ -322,26 +318,21 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                 </Text>
                 <Text style={styles.stateText}>{closure.reason}</Text>
               </View>
-            ) : !meal ? (
-              <View style={styles.state}>
-                <Text style={styles.stateTitle}>No menu posted</Text>
-                <Text style={styles.stateText}>
-                  {menu?.error === 'unsupported_date'
-                    ? 'Only today and tomorrow are posted.'
-                    : menu?.status === 'unavailable'
-                      ? 'This hall has no data for this date yet. Menus often go up closer to the day.'
-                      : 'Nothing posted for this date yet.'}
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    setLoading(true);
-                    load(true);
-                  }}
-                  style={[styles.retry, { backgroundColor: hall.color }]}
-                >
-                  <Text style={[styles.retryText, { color: hall.onColor }]}>Check again</Text>
-                </Pressable>
-              </View>
+            ) : error || !meal ? (
+              <ProblemState
+                problem={error?.problem ?? menu?.problem ?? 'not_published'}
+                status={error?.status}
+                hallName={hall.name}
+                college={hall.college}
+                dayPhrase={dayPhrase(date, selected)}
+                sourceUrl={hall.sourceUrl}
+                buttonColor={hall.color}
+                buttonTextColor={hall.onColor}
+                onRetry={() => {
+                  setLoading(true);
+                  load(true);
+                }}
+              />
             ) : (
               <MealBody
                 hallId={hallId}
@@ -516,18 +507,63 @@ function DietLabels({
   );
 }
 
-/**
- * fetchHallMenu throws "Menu request failed (503)" for HTTP errors, fetch
- * rejects with a TypeError ("Failed to fetch", "Network request failed") when
- * offline, and a malformed body throws a SyntaxError. None is worth showing
- * verbatim, and only the TypeError means the connection is at fault.
- */
-function loadErrorMessage(e: unknown): string {
-  if (e instanceof Error && e.message.startsWith('Menu request failed')) {
-    return "This hall's menu source isn't responding right now. Try again in a bit.";
-  }
-  if (e instanceof TypeError) return 'Check your connection and try again.';
-  return "Couldn't read this hall's menu. Try again in a bit.";
+/** "today", "tomorrow", "on Sunday" for the selected day pill. */
+function dayPhrase(date: Date, index: number): string {
+  if (index === 0) return 'today';
+  if (index === 1) return 'tomorrow';
+  return `on ${dateCardLabel(date, index)}`;
+}
+
+/** Empty/error state: says why there's no menu and what the user can do. */
+function ProblemState({
+  problem,
+  status,
+  hallName,
+  college,
+  dayPhrase: day,
+  sourceUrl,
+  buttonColor,
+  buttonTextColor,
+  onRetry,
+}: {
+  problem: MenuProblem;
+  status?: number;
+  hallName: string;
+  college: string;
+  dayPhrase: string;
+  sourceUrl: string;
+  buttonColor: string;
+  buttonTextColor: string;
+  onRetry: () => void;
+}) {
+  const copy = describeMenuProblem(problem, {
+    hallName,
+    college: college.replace(/ College$/, ''),
+    dayPhrase: day,
+    status,
+  });
+  return (
+    <View style={styles.state} accessibilityLiveRegion="polite">
+      <Text style={styles.stateTitle} accessibilityRole="header">
+        {copy.title}
+      </Text>
+      <Text style={styles.stateText}>{copy.detail}</Text>
+      {copy.action ? (
+        <Pressable
+          onPress={onRetry}
+          accessibilityRole="button"
+          style={[styles.retry, { backgroundColor: buttonColor }]}
+        >
+          <Text style={[styles.retryText, { color: buttonTextColor }]}>{copy.action}</Text>
+        </Pressable>
+      ) : null}
+      {copy.showSource ? (
+        <ExternalLink href={sourceUrl} style={styles.sourceLink}>
+          <Text style={styles.sourceLinkText}>Open {hallName}&apos;s menu website</Text>
+        </ExternalLink>
+      ) : null}
+    </View>
+  );
 }
 
 /**
@@ -666,6 +702,8 @@ const styles = StyleSheet.create({
   stateText: { fontSize: 14, color: Theme.foodItem, textAlign: 'center' },
   retry: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: Theme.white, fontWeight: '700' },
+  sourceLink: { marginTop: 4, paddingVertical: 6 },
+  sourceLinkText: { fontSize: 13, color: Theme.foodItem, textDecorationLine: 'underline' },
   mealBody: { gap: 4 },
   emptyMeal: { alignItems: 'center', paddingVertical: 28, gap: 8 },
   bulkRow: {

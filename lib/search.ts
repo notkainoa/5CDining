@@ -38,6 +38,7 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
   }
 
   let reached = 0;
+  let firstFailure: unknown;
   const pages = await Promise.all(
     jobs.map(async ({ hall, di }): Promise<SearchHit[]> => {
       try {
@@ -68,12 +69,14 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
           }
         }
         return out;
-      } catch {
+      } catch (e) {
+        firstFailure ??= e;
         return [];
       }
     }),
   );
-  if (reached === 0) throw new Error('Could not load menus');
+  // Rethrow a real failure (offline, timeout, server) so the screen can say which.
+  if (reached === 0) throw firstFailure ?? new Error('Could not load menus');
   return pages.flat();
 }
 
