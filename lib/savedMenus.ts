@@ -65,14 +65,43 @@ export async function readSavedMenu(
       !entry ||
       typeof entry.savedAt !== 'string' ||
       !entry.menu ||
-      !Array.isArray(entry.menu.meals) ||
-      entry.menu.meals.length === 0
+      !isSavable(entry.menu) ||
+      !entry.menu.meals!.every(validMeal)
     ) {
       return null;
     }
     return entry as SavedMenu;
   } catch {
     return null;
+  }
+}
+
+/** The fields the screens dereference; anything else is treated as corrupt. */
+function validMeal(meal: unknown): boolean {
+  const m = meal as { name?: unknown; stations?: unknown } | null;
+  return (
+    !!m &&
+    typeof m.name === 'string' &&
+    Array.isArray(m.stations) &&
+    m.stations.every(
+      (st: { name?: unknown; items?: unknown } | null) =>
+        !!st &&
+        typeof st.name === 'string' &&
+        Array.isArray(st.items) &&
+        st.items.every((it: { name?: unknown } | null) => !!it && typeof it.name === 'string'),
+    )
+  );
+}
+
+export async function removeSavedMenu(
+  store: KeyValueStore,
+  hall: string,
+  ymd: string,
+): Promise<void> {
+  try {
+    await store.removeItem(savedMenuKey(hall, ymd));
+  } catch {
+    // best-effort
   }
 }
 

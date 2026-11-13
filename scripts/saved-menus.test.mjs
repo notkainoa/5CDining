@@ -77,6 +77,18 @@ test('offline note says why and how old', () => {
   const now = new Date('2026-11-13T20:00:00Z');
   assert.equal(
     describeSavedOffline('offline', '2026-11-13T19:00:00Z', now),
-    'No internet connection. Showing the menu saved on this device from 1 hour ago. Pull down to refresh.',
+    'No internet connection. Showing the menu saved on this device 1 hour ago. Pull down to refresh.',
   );
+});
+
+test('a saved entry with a broken meal shape reads as nothing', async () => {
+  const store = memoryStore();
+  store.map.set(
+    savedMenuKey('frary', '2026-11-13'),
+    JSON.stringify({
+      savedAt: '2026-11-13T19:00:00Z',
+      menu: { status: 'ok', meals: [{ name: 'Lunch' }] },
+    }),
+  );
+  assert.equal(await readSavedMenu(store, 'frary', '2026-11-13'), null);
 });

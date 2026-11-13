@@ -192,13 +192,13 @@ export function describeSavedOffline(
   now: Date = new Date(),
 ): string {
   const ago = timeAgo(savedAt, now);
-  const when = ago ? ` from ${ago}` : '';
+  const when = ago ? ` ${ago}` : '';
   const why =
     problem === 'offline'
       ? 'No internet connection'
       : problem === 'timeout'
         ? 'The menu server is slow to respond'
-        : "Couldn't reach the menu server";
+        : 'The menu server had a problem';
   return `${why}. Showing the menu saved on this device${when}. Pull down to refresh.`;
 }
 
