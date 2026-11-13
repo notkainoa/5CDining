@@ -6,6 +6,7 @@ import {
   isSavable,
   pruneSavedMenus,
   readSavedMenu,
+  removeSavedMenu,
   saveMenu,
   savedMenuKey,
 } from '../lib/savedMenus.ts';
@@ -91,4 +92,13 @@ test('a saved entry with a broken meal shape reads as nothing', async () => {
     }),
   );
   assert.equal(await readSavedMenu(store, 'frary', '2026-11-13'), null);
+});
+
+test('removing a saved menu deletes only that hall and day', async () => {
+  const store = memoryStore();
+  await saveMenu(store, 'frary', '2026-11-13', lunch);
+  await saveMenu(store, 'frary', '2026-11-14', lunch);
+  await removeSavedMenu(store, 'frary', '2026-11-13');
+  assert.equal(await readSavedMenu(store, 'frary', '2026-11-13'), null);
+  assert.ok(await readSavedMenu(store, 'frary', '2026-11-14'));
 });
