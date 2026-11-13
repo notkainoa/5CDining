@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -354,7 +355,13 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                   <View style={styles.staleNote} accessibilityRole="alert">
                     <Text style={styles.staleText}>
                       {menu.savedOffline
-                        ? describeSavedOffline(menu.savedOffline.problem, menu.savedOffline.savedAt)
+                        ? describeSavedOffline(
+                            menu.savedOffline.problem,
+                            menu.savedOffline.savedAt,
+                          ) +
+                          // RefreshControl only works on iOS/Android; on web the
+                          // page retries by itself after a couple of minutes.
+                          (Platform.OS === 'web' ? '' : ' Pull down to refresh.')
                         : describeStale(
                             menu.stale!.reason,
                             menu.stale!.verifiedAt,

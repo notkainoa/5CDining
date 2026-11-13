@@ -78,7 +78,7 @@ test('offline note says why and how old', () => {
   const now = new Date('2026-11-13T20:00:00Z');
   assert.equal(
     describeSavedOffline('offline', '2026-11-13T19:00:00Z', now),
-    'No internet connection. Showing the menu saved on this device 1 hour ago. Pull down to refresh.',
+    'No internet connection. Showing the menu saved on this device 1 hour ago.',
   );
 });
 

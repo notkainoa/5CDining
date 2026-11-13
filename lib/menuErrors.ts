@@ -199,7 +199,7 @@ export function describeSavedOffline(
       : problem === 'timeout'
         ? 'The menu server is slow to respond'
         : 'The menu server had a problem';
-  return `${why}. Showing the menu saved on this device${when}. Pull down to refresh.`;
+  return `${why}. Showing the menu saved on this device${when}.`;
 }
 
 /** Search loads every hall at once; describe the failure when none of them loaded. */
