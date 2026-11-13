@@ -20,8 +20,9 @@ export interface SearchHit {
 
 /**
  * Fetch today + tomorrow for every hall in parallel. A failed hall yields no
- * hits; throws only when every request failed (offline), so the screen can
- * offer a retry instead of reporting "no matches".
+ * hits. Throws the first failure (offline, timeout, server error) only when
+ * every request failed, so the screen can say why and offer a retry instead
+ * of reporting "no matches".
  */
 export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]> {
   const favIds = new Set(favLabels.map(favoriteId));
@@ -38,12 +39,14 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
   }
 
   let reached = 0;
+  let firstFailure: unknown;
   const pages = await Promise.all(
     jobs.map(async ({ hall, di }): Promise<SearchHit[]> => {
       try {
         const menu = await fetchHallMenu(hall.id, days[di]);
         reached += 1;
-        if (menu.status !== 'ok' || !menu.meals) return [];
+        // Stale menus are the API's saved copy; still worth searching.
+        if ((menu.status !== 'ok' && menu.status !== 'stale') || !menu.meals) return [];
         const day = (di === 0 ? 'Today' : 'Tomorrow') as 'Today' | 'Tomorrow';
         const dateLabel = `${days[di].getMonth() + 1}/${days[di].getDate()}`;
         const out: SearchHit[] = [];
@@ -68,12 +71,14 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
           }
         }
         return out;
-      } catch {
+      } catch (e) {
+        firstFailure ??= e;
         return [];
       }
     }),
   );
-  if (reached === 0) throw new Error('Could not load menus');
+  // Rethrow a real failure (offline, timeout, server) so the screen can say which.
+  if (reached === 0) throw firstFailure ?? new Error('Could not load menus');
   return pages.flat();
 }
 
