@@ -28,9 +28,12 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
   const data = await fetchHallMenu(hall, date);
   // Only cache real menus. "Not posted yet" or "hall site down" can change
   // minutes later, so the next visit should ask again instead of replaying it.
-  if (data.status === 'ok' && !data.problem && gen >= (cachedGen.get(key) ?? 0)) {
-    setCachedMenu(hall, date, data);
+  if (gen >= (cachedGen.get(key) ?? 0)) {
     cachedGen.set(key, gen);
+    if (data.status === 'ok' && !data.problem) setCachedMenu(hall, date, data);
+    // The newest answer says there's no current menu, so an older good copy
+    // must not come back when the user returns to this day.
+    else cache.delete(key);
   }
   return data;
 }

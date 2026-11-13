@@ -20,8 +20,9 @@ export interface SearchHit {
 
 /**
  * Fetch today + tomorrow for every hall in parallel. A failed hall yields no
- * hits; throws only when every request failed (offline), so the screen can
- * offer a retry instead of reporting "no matches".
+ * hits. Throws the first failure (offline, timeout, server error) only when
+ * every request failed, so the screen can say why and offer a retry instead
+ * of reporting "no matches".
  */
 export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]> {
   const favIds = new Set(favLabels.map(favoriteId));

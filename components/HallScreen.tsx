@@ -45,7 +45,7 @@ import {
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
-import { getCachedMenu, loadHallMenu } from '@/lib/menuCache';
+import { loadHallMenu } from '@/lib/menuCache';
 import { dateCardLabel } from '@/lib/dates';
 import {
   describeMenuProblem,
@@ -100,6 +100,10 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const [openStations, setOpenStations] = useState<number[]>([]);
   const [picker, setPicker] = useState<null | 'meal'>(null);
   const reqId = useRef(0);
+  const shownMenu = useRef<HallMenu | null>(null);
+  useEffect(() => {
+    shownMenu.current = menu;
+  }, [menu]);
 
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
 
@@ -169,19 +173,24 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
         return;
       }
       const id = ++reqId.current;
-      if (!force) setLoading(true);
-      setError(null);
+      // A forced refresh keeps whatever is on screen (menu or error) until it
+      // settles, instead of flashing a placeholder state.
+      if (!force) {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const data = await loadHallMenu(hallId, date, force);
         if (reqId.current !== id) return;
         setMenu(data);
+        setError(null);
       } catch (e) {
         if (reqId.current !== id) return;
         // A failed refresh keeps the menu already on screen for this day
-        // rather than swapping a good menu for an error.
-        const cached = getCachedMenu(hallId, date);
-        if (cached) {
-          setMenu(cached);
+        // (fresh or the API's saved copy) rather than swapping it for an error.
+        const shown = shownMenu.current;
+        if (force && shown?.date === formatYMDForApi(date) && shown.meals?.length) {
+          setError(null);
         } else {
           setError(problemFromError(e));
         }

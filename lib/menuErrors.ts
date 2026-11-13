@@ -198,6 +198,11 @@ export function describeSearchProblem(problem: MenuProblem): { title: string; de
         title: 'Menus are taking too long',
         detail: 'Your connection may be slow, or the menu server is busy.',
       };
+    case 'bad_response':
+      return {
+        title: "Couldn't read the menus",
+        detail: 'The menu server sent something unexpected. Try again in a bit.',
+      };
     default:
       return {
         title: 'Menu server error',

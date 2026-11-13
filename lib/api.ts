@@ -84,25 +84,31 @@ export function formatYMDForApi(d: Date): string {
 const TIMEOUT_MS = 12_000;
 const RETRY_DELAY_MS = 700;
 
-/** fetch with a timeout; a stuck request rejects with MenuLoadError('timeout'). */
-async function fetchWithTimeout(url: string): Promise<Response> {
+/**
+ * GET a URL and read its JSON body under one timeout, so a stalled body can't
+ * hang the screen either. Network failures become MenuLoadError('offline'),
+ * running out of time becomes 'timeout'. An unparseable body reads as undefined.
+ */
+async function getJson(url: string): Promise<{ res: Response; body: unknown }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { signal: ctrl.signal });
-  } catch (e) {
-    if (ctrl.signal.aborted) throw new MenuLoadError('timeout');
-    throw e;
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: ctrl.signal });
+    } catch {
+      throw new MenuLoadError(ctrl.signal.aborted ? 'timeout' : 'offline');
+    }
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      if (ctrl.signal.aborted) throw new MenuLoadError('timeout');
+      body = undefined;
+    }
+    return { res, body };
   } finally {
     clearTimeout(timer);
-  }
-}
-
-async function readJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return undefined;
   }
 }
 
@@ -114,15 +120,18 @@ function apiErrorCode(body: unknown): string | undefined {
 }
 
 async function fetchHallMenuOnce(hall: HallId, ymd: string): Promise<HallMenu> {
-  let res: Response;
+  const { res, body } = await getJson(`${BASE}/v1/menus/${hall}?date=${ymd}`);
   try {
-    res = await fetchWithTimeout(`${BASE}/v1/menus/${hall}?date=${ymd}`);
+    return interpretMenu(hall, ymd, res, body);
   } catch (e) {
-    const { problem, status } = problemFromError(e);
-    throw new MenuLoadError(problem, status);
+    // Anything unexpected while reading the body (e.g. a meal with no
+    // stations) is a malformed response, never "no internet".
+    if (e instanceof MenuLoadError) throw e;
+    throw new MenuLoadError('bad_response', res.status);
   }
-  const body = await readJson(res);
+}
 
+function interpretMenu(hall: HallId, ymd: string, res: Response, body: unknown): HallMenu {
   if (!res.ok) {
     // "Not published", "source down" and "out of range" come back as 4xx/503
     // with a code in the body. They describe the menu, not a broken request.
@@ -141,8 +150,10 @@ async function fetchHallMenuOnce(hall: HallId, ymd: string): Promise<HallMenu> {
     throw new MenuLoadError('server', res.status);
   }
 
-  if (!body || typeof body !== 'object') throw new MenuLoadError('bad_response', res.status);
   const menu = body as HallMenu;
+  if (!menu || typeof menu !== 'object' || typeof menu.status !== 'string') {
+    throw new MenuLoadError('bad_response', res.status);
+  }
   const code = apiErrorCode(body);
   if (menu.status === 'closed') return { ...menu, meals: [], problem: 'closed' };
   if (menu.status !== 'ok' && menu.status !== 'stale') {

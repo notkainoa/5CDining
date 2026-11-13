@@ -150,3 +150,13 @@ test('stale note names the college and the age', () => {
   );
   assert.match(describeStale('overdue', null, 'Pomona', now), /^Saved copy\. Updates are delayed/);
 });
+
+test('a malformed menu shape is a bad response, not "no internet"', async () => {
+  mockFetch(json(200, { status: 'ok', meals: [{ name: 'Lunch' }] }));
+  assert.equal((await failure(fetchHallMenu('frary', day))).problem, 'bad_response');
+});
+
+test('a 200 body with no status is a bad response', async () => {
+  mockFetch(json(200, {}));
+  assert.equal((await failure(fetchHallMenu('frary', day))).problem, 'bad_response');
+});

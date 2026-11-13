@@ -252,7 +252,11 @@ function SearchScreenInner() {
     body =
       groups.length === 0 ? (
         <View style={styles.card}>
-          <Text style={styles.hint}>{`No dishes match "${query.trim()}".`}</Text>
+          <Text style={styles.hint}>
+            {index && index.length === 0
+              ? 'No menus are posted for today or tomorrow yet.'
+              : `No dishes match "${query.trim()}".`}
+          </Text>
         </View>
       ) : (
         groups.map((g) => <DishCard key={g.id} group={g} />)
