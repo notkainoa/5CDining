@@ -49,6 +49,7 @@ import { loadHallMenu } from '@/lib/menuCache';
 import { dateCardLabel } from '@/lib/dates';
 import {
   describeMenuProblem,
+  describeSavedOffline,
   describeStale,
   problemFromError,
   type MenuProblem,
@@ -349,14 +350,16 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               />
             ) : (
               <>
-                {menu?.stale ? (
+                {menu?.savedOffline || menu?.stale ? (
                   <View style={styles.staleNote} accessibilityRole="alert">
                     <Text style={styles.staleText}>
-                      {describeStale(
-                        menu.stale.reason,
-                        menu.stale.verifiedAt,
-                        hall.college.replace(/ College$/, ''),
-                      )}
+                      {menu.savedOffline
+                        ? describeSavedOffline(menu.savedOffline.problem, menu.savedOffline.savedAt)
+                        : describeStale(
+                            menu.stale!.reason,
+                            menu.stale!.verifiedAt,
+                            hall.college.replace(/ College$/, ''),
+                          )}
                     </Text>
                   </View>
                 ) : null}
