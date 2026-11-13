@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js';
-import { fetchHallMenu, mealTitle, mergeStations } from './api';
+import { mealTitle, mergeStations } from './api';
+import { loadHallMenu } from './menuCache';
 import { todayInLA } from './dates';
 import { DINING_HALLS } from './diningHalls';
 import { favoriteId } from './settings';
@@ -19,10 +20,11 @@ export interface SearchHit {
 }
 
 /**
- * Fetch today + tomorrow for every hall in parallel. A failed hall yields no
- * hits. Throws the first failure (offline, timeout, server error) only when
- * every request failed, so the screen can say why and offer a retry instead
- * of reporting "no matches".
+ * Load today + tomorrow for every hall in parallel, through the same loader
+ * as the hall pages (so offline it uses menus saved on the device). A failed
+ * hall yields no hits. Throws the first failure (offline, timeout, server
+ * error) only when every hall failed with nothing saved, so the screen can say
+ * why and offer a retry instead of reporting "no matches".
  */
 export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]> {
   const favIds = new Set(favLabels.map(favoriteId));
@@ -43,7 +45,8 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
   const pages = await Promise.all(
     jobs.map(async ({ hall, di }): Promise<SearchHit[]> => {
       try {
-        const menu = await fetchHallMenu(hall.id, days[di]);
+        // Shares the hall pages' cache and falls back to saved menus offline.
+        const menu = await loadHallMenu(hall.id, days[di]);
         reached += 1;
         // Stale menus are the API's saved copy; still worth searching.
         if ((menu.status !== 'ok' && menu.status !== 'stale') || !menu.meals) return [];

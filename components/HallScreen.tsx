@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -49,6 +50,7 @@ import { loadHallMenu } from '@/lib/menuCache';
 import { dateCardLabel } from '@/lib/dates';
 import {
   describeMenuProblem,
+  describeSavedOffline,
   describeStale,
   problemFromError,
   type MenuProblem,
@@ -349,14 +351,22 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
               />
             ) : (
               <>
-                {menu?.stale ? (
+                {menu?.savedOffline || menu?.stale ? (
                   <View style={styles.staleNote} accessibilityRole="alert">
                     <Text style={styles.staleText}>
-                      {describeStale(
-                        menu.stale.reason,
-                        menu.stale.verifiedAt,
-                        hall.college.replace(/ College$/, ''),
-                      )}
+                      {menu.savedOffline
+                        ? describeSavedOffline(
+                            menu.savedOffline.problem,
+                            menu.savedOffline.savedAt,
+                          ) +
+                          // RefreshControl only works on iOS/Android; on web the
+                          // page retries by itself after a couple of minutes.
+                          (Platform.OS === 'web' ? '' : ' Pull down to refresh.')
+                        : describeStale(
+                            menu.stale!.reason,
+                            menu.stale!.verifiedAt,
+                            hall.college.replace(/ College$/, ''),
+                          )}
                     </Text>
                   </View>
                 ) : null}
