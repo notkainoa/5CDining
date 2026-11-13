@@ -64,7 +64,9 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
       ...saved.menu,
       savedOffline: { savedAt: saved.savedAt, problem: problemFromError(e).problem },
     };
-    if (gen >= (cachedGen.get(key) ?? 0) && !getCachedMenu(hall, date)) {
+    // Replace any earlier in-memory copy too, so the offline note stays until
+    // the network is tried again (same data: it was saved when fetched).
+    if (gen >= (cachedGen.get(key) ?? 0)) {
       setCachedMenu(hall, date, fallback);
       offlineUntil.set(key, Date.now() + OFFLINE_REUSE_MS);
     }
