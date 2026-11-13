@@ -12,6 +12,8 @@ let prunedFor: string | null = null;
 /** A saved copy served offline is reused for this long before asking the network again. */
 const OFFLINE_REUSE_MS = 2 * 60 * 1000;
 const offlineUntil = new Map<string, number>();
+/** Bumped each time a request for a key succeeds, whatever order requests started in. */
+const successCount = new Map<string, number>();
 
 export function menuCacheKey(hall: HallId, d: Date): string {
   return `${hall}:${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -53,6 +55,7 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
   const ymd = formatYMDForApi(date);
   const gen = (requestGen.get(key) ?? 0) + 1;
   requestGen.set(key, gen);
+  const successesAtStart = successCount.get(key) ?? 0;
 
   let data: HallMenu;
   try {
@@ -64,9 +67,11 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
       ...saved.menu,
       savedOffline: { savedAt: saved.savedAt, problem: problemFromError(e).problem },
     };
-    // Replace any earlier in-memory copy too, so the offline note stays until
-    // the network is tried again (same data: it was saved when fetched).
-    if (gen >= (cachedGen.get(key) ?? 0)) {
+    // Replace an earlier in-memory copy too, so the offline note stays until
+    // the network is tried again (same data: it was saved when fetched). But
+    // never over a request that succeeded while this one was failing (the
+    // hall page and search often load the same hall at once).
+    if ((successCount.get(key) ?? 0) === successesAtStart) {
       setCachedMenu(hall, date, fallback);
       offlineUntil.set(key, Date.now() + OFFLINE_REUSE_MS);
     }
@@ -75,6 +80,7 @@ export async function loadHallMenu(hall: HallId, date: Date, force = false): Pro
 
   // Only cache real menus. "Not posted yet" or "hall site down" can change
   // minutes later, so the next visit should ask again instead of replaying it.
+  successCount.set(key, (successCount.get(key) ?? 0) + 1);
   if (gen >= (cachedGen.get(key) ?? 0)) {
     cachedGen.set(key, gen);
     offlineUntil.delete(key);
