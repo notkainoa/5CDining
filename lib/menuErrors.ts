@@ -20,6 +20,8 @@ export type MenuProblem =
   | 'server'
   /** The response wasn't the JSON shape the app expects. */
   | 'bad_response'
+  /** The school's source explicitly says the hall is closed that day. */
+  | 'closed'
   /** The menu loaded fine but lists no meals for the day. */
   | 'no_meals';
 
@@ -48,6 +50,7 @@ export const TRANSIENT_PROBLEMS: ReadonlySet<MenuProblem> = new Set(['offline', 
 export function problemFromApiCode(code: string | undefined): MenuProblem | undefined {
   switch (code?.toLowerCase()) {
     case 'menu_not_published':
+    case 'menu_unavailable':
       return 'not_published';
     case 'source_fetch_failed':
       return 'source_down';
@@ -123,6 +126,13 @@ export function describeMenuProblem(problem: MenuProblem, ctx: ProblemContext): 
         action: null,
         showSource: false,
       };
+    case 'closed':
+      return {
+        title: `Closed ${dayPhrase}`,
+        detail: `${hallName} is closed ${dayPhrase}.`,
+        action: null,
+        showSource: true,
+      };
     case 'no_meals':
       return {
         title: `Closed ${dayPhrase}`,
@@ -146,6 +156,33 @@ export function describeMenuProblem(problem: MenuProblem, ctx: ProblemContext): 
         showSource: true,
       };
   }
+}
+
+/** "just now", "5 min ago", "3 hours ago", "2 days ago". */
+export function timeAgo(iso: string | null, now: Date = new Date()): string | null {
+  if (!iso) return null;
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return null;
+  const mins = Math.max(0, Math.round((now.getTime() - then) / 60_000));
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
+/** One-line note shown above a menu the API served from its saved copy. */
+export function describeStale(
+  reason: 'source_down' | 'overdue',
+  verifiedAt: string | null,
+  college: string,
+  now: Date = new Date(),
+): string {
+  const ago = timeAgo(verifiedAt, now);
+  const saved = ago ? `Saved copy, last checked ${ago}.` : 'Saved copy.';
+  return reason === 'source_down'
+    ? `${saved} ${college}'s menu site isn't responding, so changes may be missing.`
+    : `${saved} Updates are delayed, so changes may be missing.`;
 }
 
 /** Search loads every hall at once; describe the failure when none of them loaded. */

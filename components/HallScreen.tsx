@@ -47,7 +47,12 @@ import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allerge
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
 import { getCachedMenu, loadHallMenu } from '@/lib/menuCache';
 import { dateCardLabel } from '@/lib/dates';
-import { describeMenuProblem, problemFromError, type MenuProblem } from '@/lib/menuErrors';
+import {
+  describeMenuProblem,
+  describeStale,
+  problemFromError,
+  type MenuProblem,
+} from '@/lib/menuErrors';
 import { ExternalLink } from '@/components/ExternalLink';
 import { usePrefs } from '@/lib/settings';
 import { useDim } from '@/lib/dim';
@@ -334,14 +339,27 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
                 }}
               />
             ) : (
-              <MealBody
-                hallId={hallId}
-                meal={meal}
-                hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
-                caloriesReliable={hallCaloriesReliable(meals)}
-                openStations={openStations}
-                setOpenStations={setOpenStations}
-              />
+              <>
+                {menu?.stale ? (
+                  <View style={styles.staleNote} accessibilityRole="alert">
+                    <Text style={styles.staleText}>
+                      {describeStale(
+                        menu.stale.reason,
+                        menu.stale.verifiedAt,
+                        hall.college.replace(/ College$/, ''),
+                      )}
+                    </Text>
+                  </View>
+                ) : null}
+                <MealBody
+                  hallId={hallId}
+                  meal={meal}
+                  hasGlutenFree={menusHaveFlag(meals, 'glutenFree')}
+                  caloriesReliable={hallCaloriesReliable(meals)}
+                  openStations={openStations}
+                  setOpenStations={setOpenStations}
+                />
+              </>
             )}
             <View style={{ height: 16 }} />
           </ScrollView>
@@ -702,6 +720,14 @@ const styles = StyleSheet.create({
   stateText: { fontSize: 14, color: Theme.foodItem, textAlign: 'center' },
   retry: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: Theme.white, fontWeight: '700' },
+  staleNote: {
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Theme.staleBg,
+  },
+  staleText: { fontSize: 13, lineHeight: 18, color: Theme.staleText },
   sourceLink: { marginTop: 4, paddingVertical: 6 },
   sourceLinkText: { fontSize: 13, color: Theme.foodItem, textDecorationLine: 'underline' },
   mealBody: { gap: 4 },

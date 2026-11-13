@@ -45,12 +45,26 @@ export interface Meal {
   endTime?: string;
 }
 
+export interface StaleInfo {
+  /** 'source_down': the school's site failed; 'overdue': the hourly check didn't run. */
+  reason: 'source_down' | 'overdue';
+  /** When this exact menu was last verified (ISO), if known. */
+  verifiedAt: string | null;
+}
+
 export interface HallMenu {
   hall: string;
   date: string;
-  status: 'ok' | 'unavailable' | string;
+  /** API status: 'ok' | 'closed' | 'stale' | 'unavailable'. */
+  status: 'ok' | 'closed' | 'stale' | 'unavailable' | string;
   /** Set when there is nothing to show, saying why. See lib/menuErrors.ts. */
   problem?: MenuProblem;
+  /**
+   * Set when the API served its last saved copy because it couldn't re-check
+   * the source (status 'stale'). The meals are still shown, with a note.
+   */
+  stale?: StaleInfo;
+  lastSuccessfulCheckAt?: string | null;
   sourceUrl?: string;
   menuUpdatedAt?: string;
   meals: Meal[] | null;
@@ -129,12 +143,10 @@ async function fetchHallMenuOnce(hall: HallId, ymd: string): Promise<HallMenu> {
 
   if (!body || typeof body !== 'object') throw new MenuLoadError('bad_response', res.status);
   const menu = body as HallMenu;
-  if (menu.status !== 'ok') {
-    return {
-      ...menu,
-      meals: null,
-      problem: problemFromApiCode(apiErrorCode(body)) ?? 'not_published',
-    };
+  const code = apiErrorCode(body);
+  if (menu.status === 'closed') return { ...menu, meals: [], problem: 'closed' };
+  if (menu.status !== 'ok' && menu.status !== 'stale') {
+    return { ...menu, meals: null, problem: problemFromApiCode(code) ?? 'not_published' };
   }
   if (menu.meals != null && !Array.isArray(menu.meals)) {
     throw new MenuLoadError('bad_response', res.status);
@@ -142,7 +154,15 @@ async function fetchHallMenuOnce(hall: HallId, ymd: string): Promise<HallMenu> {
   // Dessert ordering needs the hall id, which mergeStations (called from the
   // screens) does not have. mergeStations keeps first-seen order, so this holds.
   const meals = (menu.meals ?? []).map((m) => moveDessertStationsLast(hall, m));
-  return { ...menu, meals, problem: meals.length === 0 ? 'no_meals' : undefined };
+  const stale: StaleInfo | undefined =
+    menu.status === 'stale'
+      ? {
+          reason: problemFromApiCode(code) === 'source_down' ? 'source_down' : 'overdue',
+          verifiedAt:
+            typeof menu.lastSuccessfulCheckAt === 'string' ? menu.lastSuccessfulCheckAt : null,
+        }
+      : undefined;
+  return { ...menu, meals, stale, problem: meals.length === 0 ? 'no_meals' : undefined };
 }
 
 /**

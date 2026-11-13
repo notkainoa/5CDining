@@ -44,7 +44,8 @@ export async function loadSearchIndex(favLabels: string[]): Promise<SearchHit[]>
       try {
         const menu = await fetchHallMenu(hall.id, days[di]);
         reached += 1;
-        if (menu.status !== 'ok' || !menu.meals) return [];
+        // Stale menus are the API's saved copy; still worth searching.
+        if ((menu.status !== 'ok' && menu.status !== 'stale') || !menu.meals) return [];
         const day = (di === 0 ? 'Today' : 'Tomorrow') as 'Today' | 'Tomorrow';
         const dateLabel = `${days[di].getMonth() + 1}/${days[di].getDate()}`;
         const out: SearchHit[] = [];

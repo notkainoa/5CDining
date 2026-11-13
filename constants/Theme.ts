@@ -14,4 +14,7 @@ export const Theme = {
   vegetarian: '#c2410c',
   glutenFree: '#364fc7',
   plantBased: '#087f5b',
+  /** Note above a menu served from the API's saved copy. */
+  staleBg: '#fff4e0',
+  staleText: '#7a4a00',
 } as const;

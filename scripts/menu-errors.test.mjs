@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { fetchHallMenu } from '../lib/api.ts';
-import { MenuLoadError, describeMenuProblem, problemFromError } from '../lib/menuErrors.ts';
+import {
+  MenuLoadError,
+  describeMenuProblem,
+  describeStale,
+  problemFromError,
+} from '../lib/menuErrors.ts';
 
 const day = new Date(2026, 10, 13);
 const json = (status, body) =>
@@ -99,4 +104,49 @@ test('copy names the hall, day and college', () => {
   assert.equal(describeMenuProblem('offline', ctx).title, 'No internet connection');
   assert.match(describeMenuProblem('server', { ...ctx, status: 502 }).detail, /error 502/);
   assert.equal(describeMenuProblem('out_of_range', ctx).action, null);
+});
+
+test('a stale menu keeps its meals and says why', async () => {
+  mockFetch(
+    json(200, {
+      status: 'stale',
+      lastSuccessfulCheckAt: '2026-11-13T17:00:00.000Z',
+      error: { code: 'SOURCE_FETCH_FAILED' },
+      meals: [{ name: 'Lunch', stations: [] }],
+    }),
+  );
+  const menu = await fetchHallMenu('frank', day);
+  assert.equal(menu.meals.length, 1);
+  assert.equal(menu.problem, undefined);
+  assert.deepEqual(menu.stale, { reason: 'source_down', verifiedAt: '2026-11-13T17:00:00.000Z' });
+});
+
+test('a stale menu with an overdue check reads as delayed', async () => {
+  mockFetch(
+    json(200, {
+      status: 'stale',
+      error: { code: 'CHECK_OVERDUE' },
+      meals: [{ name: 'Lunch', stations: [] }],
+    }),
+  );
+  assert.equal((await fetchHallMenu('frank', day)).stale.reason, 'overdue');
+});
+
+test('status closed is a definite closure', async () => {
+  mockFetch(json(200, { status: 'closed', meals: [] }));
+  assert.equal((await fetchHallMenu('frank', day)).problem, 'closed');
+});
+
+test('503 MENU_UNAVAILABLE reads as not posted', async () => {
+  mockFetch(json(503, { status: 'unavailable', meals: null, error: { code: 'MENU_UNAVAILABLE' } }));
+  assert.equal((await fetchHallMenu('frank', day)).problem, 'not_published');
+});
+
+test('stale note names the college and the age', () => {
+  const now = new Date('2026-11-13T20:00:00.000Z');
+  assert.equal(
+    describeStale('source_down', '2026-11-13T17:00:00.000Z', 'Pomona', now),
+    "Saved copy, last checked 3 hours ago. Pomona's menu site isn't responding, so changes may be missing.",
+  );
+  assert.match(describeStale('overdue', null, 'Pomona', now), /^Saved copy\. Updates are delayed/);
 });
