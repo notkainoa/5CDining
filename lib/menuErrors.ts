@@ -185,6 +185,23 @@ export function describeStale(
     : `${saved} Updates are delayed, so changes may be missing.`;
 }
 
+/** Note above a menu shown from the device's own saved copy. */
+export function describeSavedOffline(
+  problem: MenuProblem,
+  savedAt: string,
+  now: Date = new Date(),
+): string {
+  const ago = timeAgo(savedAt, now);
+  const when = ago ? ` ${ago}` : '';
+  const why =
+    problem === 'offline'
+      ? 'No internet connection'
+      : problem === 'timeout'
+        ? 'The menu server is slow to respond'
+        : 'The menu server had a problem';
+  return `${why}. Showing the menu saved on this device${when}.`;
+}
+
 /** Search loads every hall at once; describe the failure when none of them loaded. */
 export function describeSearchProblem(problem: MenuProblem): { title: string; detail: string } {
   switch (problem) {

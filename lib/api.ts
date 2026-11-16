@@ -64,6 +64,11 @@ export interface HallMenu {
    * the source (status 'stale'). The meals are still shown, with a note.
    */
   stale?: StaleInfo;
+  /**
+   * Set by loadHallMenu when the request failed and this is the copy the
+   * device saved earlier. `problem` is why the fresh request failed.
+   */
+  savedOffline?: { savedAt: string; problem: MenuProblem };
   lastSuccessfulCheckAt?: string | null;
   sourceUrl?: string;
   menuUpdatedAt?: string;
