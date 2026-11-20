@@ -17,7 +17,6 @@ import {
   formatYMDForApi,
   mealHoursCompact,
   mergeStations,
-  pickCurrentMeal,
   pinTodaysDishes,
   shortMealName,
   type HallMenu,
@@ -34,15 +33,7 @@ import {
 import { Theme } from '@/constants/Theme';
 import { hallCaloriesReliable, isPlausibleCalories } from '@/lib/calories';
 import { useDay } from '@/lib/day';
-import {
-  automaticMealSelection,
-  firstMealWithDishes,
-  mealIndexForSelection,
-  mealSelectionIntent,
-  sameMealSelection,
-  withTypicalMealTimes,
-  type AutomaticMealObservation,
-} from '@/lib/mealSelection';
+import { mealIndexFor, mealKey } from '@/lib/mealSelection';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
 import { effectiveAvoidedAllergens, hallPublishesAllergens } from '@/lib/allergens';
 import { HALL_BY_ID, type HallId } from '@/lib/diningHalls';
@@ -66,15 +57,7 @@ import SchoolLogo from '@/components/SchoolLogo';
 
 export default function HallScreen({ hallId }: { hallId: HallId }) {
   const hall = HALL_BY_ID[hallId];
-  const {
-    selected,
-    date,
-    mealSelection,
-    mealSelectionIsManual,
-    selectMeal: selectMealIntent,
-    selectAutomaticMeal,
-    nowMinutes,
-  } = useDay();
+  const { selected, date, nowMinutes, openCount } = useDay();
   const { arm, disarm } = useDim();
   const { activeKey } = useTabNav();
   const { join } = useHallBottomJoin();
@@ -109,45 +92,36 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
   const meals: Meal[] = useMemo(() => (menu?.meals ?? []).map(mergeStations), [menu]);
 
-  const autoIndex = useMemo(
-    () =>
-      meals.length === 0
-        ? 0
-        : selected === 0
-          ? pickCurrentMeal(withTypicalMealTimes(meals), nowMinutes)
-          : firstMealWithDishes(meals),
-    [meals, selected, nowMinutes],
-  );
-  const mealIndex = useMemo(
-    () => mealIndexForSelection(meals, mealSelection, autoIndex),
-    [meals, mealSelection, autoIndex],
-  );
-
+  // Each hall picks its own meal. Arriving at a hall (opening the app on it,
+  // swiping or tapping over to it, or changing the day) shows today's meal
+  // being served right now, or the next one. That choice then holds still
+  // while you stay here, even if the clock passes a meal's end time, and a
+  // meal you pick from the menu holds until you leave.
+  const isActive = activeKey === hallId;
   const selectedDate = formatYMDForApi(date);
-  const automaticObservation = useMemo<AutomaticMealObservation>(
-    () => ({
-      service: meals[autoIndex] ? mealSelectionIntent(meals[autoIndex]) : null,
-      menuDate: menu?.date ?? null,
-      selectedDate,
-      isActiveHall: activeKey === hallId,
-      isToday: selected === 0,
-    }),
-    [meals, autoIndex, menu?.date, selectedDate, activeKey, hallId, selected],
+  const arrival = `${isActive}|${selectedDate}|${openCount}`;
+  const [view, setView] = useState(() => ({
+    arrival,
+    heldNow: isActive ? nowMinutes : null,
+    pickedKey: null as string | null,
+  }));
+  if (view.arrival !== arrival) {
+    // Adjusting state during render (not in an effect) so the new hall never
+    // paints a frame with the old choice.
+    setView({ arrival, heldNow: isActive ? nowMinutes : null, pickedKey: null });
+  }
+  // Halls next to the active one follow the live clock, so a swipe reveals the
+  // same meal the hall will settle on.
+  const mealNow = view.heldNow ?? nowMinutes;
+  const mealIndex = useMemo(
+    () =>
+      mealIndexFor(meals, {
+        isToday: selected === 0,
+        nowMinutes: mealNow,
+        pickedKey: view.pickedKey,
+      }),
+    [meals, selected, mealNow, view.pickedKey],
   );
-  const previousAutomaticObservation = useRef<AutomaticMealObservation | null>(null);
-
-  useEffect(() => {
-    const automaticSelection = automaticMealSelection({
-      previous: previousAutomaticObservation.current,
-      current: automaticObservation,
-      selectedMeal: mealSelection,
-      selectionIsManual: mealSelectionIsManual,
-    });
-    previousAutomaticObservation.current = automaticObservation;
-    if (automaticSelection && !sameMealSelection(automaticSelection, mealSelection)) {
-      selectAutomaticMeal(automaticSelection);
-    }
-  }, [automaticObservation, mealSelection, mealSelectionIsManual, selectAutomaticMeal]);
 
   const expandAllRef = useRef(expandAllDefault);
   useEffect(() => {
@@ -218,7 +192,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
 
   const selectMeal = (i: number) => {
     const m = meals[i];
-    if (m) selectMealIntent(mealSelectionIntent(m));
+    if (m) setView((v) => ({ ...v, pickedKey: mealKey(m) }));
     closePicker();
   };
 

@@ -11,24 +11,16 @@ import {
 import { AppState } from 'react-native';
 import { nowMinutesInLA, reconcileDayWindow, weekDates } from './dates';
 import { invalidateMenuCache } from './menuCache';
-import {
-  sameMealSelection,
-  shouldClearMealSelection,
-  type MealSelectionIntent,
-} from './mealSelection';
 
 interface DayCtx {
   days: Date[];
   selected: number;
   date: Date;
   selectDate: (i: number) => void;
-  /** Shared service intent: exact published name plus its cross-hall period. */
-  mealSelection: MealSelectionIntent | null;
-  mealSelectionIsManual: boolean;
-  selectMeal: (selection: MealSelectionIntent) => void;
-  selectAutomaticMeal: (selection: MealSelectionIntent) => void;
-  /** Claremont minutes after midnight. Refreshed when the app is opened. */
+  /** Claremont minutes after midnight. Refreshed every minute and when the app is opened. */
   nowMinutes: number;
+  /** Goes up each time the app comes back from the background. */
+  openCount: number;
 }
 
 const DayContext = createContext<DayCtx>({
@@ -36,29 +28,18 @@ const DayContext = createContext<DayCtx>({
   selected: 0,
   date: new Date(),
   selectDate: () => {},
-  mealSelection: null,
-  mealSelectionIsManual: false,
-  selectMeal: () => {},
-  selectAutomaticMeal: () => {},
   nowMinutes: 0,
+  openCount: 0,
 });
-
-interface MealSelection {
-  selection: MealSelectionIntent | null;
-  manual: boolean;
-}
-
-const EMPTY_MEAL_SELECTION: MealSelection = { selection: null, manual: false };
 
 /** Shared selected day across all hall pages. */
 export function DayProvider({ children }: { children: ReactNode }) {
   const [days, setDays] = useState(() => weekDates());
   const [selected, setSelected] = useState(0);
-  const [mealSelection, setMealSelection] = useState<MealSelection>(EMPTY_MEAL_SELECTION);
   const [nowMinutes, setNowMinutes] = useState(nowMinutesInLA);
+  const [openCount, setOpenCount] = useState(0);
   const selectedRef = useRef(selected);
   const daysRef = useRef(days);
-  const mealSelectionRef = useRef(mealSelection);
 
   useEffect(() => {
     const syncWindow = () => {
@@ -73,15 +54,6 @@ export function DayProvider({ children }: { children: ReactNode }) {
         setSelected(update.selected);
       }
       setNowMinutes(nowMinutesInLA());
-      if (
-        shouldClearMealSelection({
-          windowShifted: update.windowShifted,
-          selectedDateKept: update.selectedDateKept,
-        })
-      ) {
-        mealSelectionRef.current = EMPTY_MEAL_SELECTION;
-        setMealSelection(EMPTY_MEAL_SELECTION);
-      }
     };
 
     let leftForBackground = false;
@@ -93,6 +65,7 @@ export function DayProvider({ children }: { children: ReactNode }) {
       if (next !== 'active' || !leftForBackground) return;
       leftForBackground = false;
       syncWindow();
+      setOpenCount((n) => n + 1);
     });
     const tick = setInterval(syncWindow, 60_000);
     return () => {
@@ -101,27 +74,8 @@ export function DayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const selectMeal = useCallback((selection: MealSelectionIntent) => {
-    const next = { selection, manual: true };
-    mealSelectionRef.current = next;
-    setMealSelection(next);
-  }, []);
-
-  const selectAutomaticMeal = useCallback((selection: MealSelectionIntent) => {
-    const current = mealSelectionRef.current;
-    if (current.manual) return;
-    if (sameMealSelection(current.selection, selection)) return;
-    const next = { selection, manual: false };
-    mealSelectionRef.current = next;
-    setMealSelection(next);
-  }, []);
-
   const selectDate = useCallback((index: number) => {
     if (index < 0 || index >= daysRef.current.length) return;
-    if (index !== selectedRef.current && !mealSelectionRef.current.manual) {
-      mealSelectionRef.current = EMPTY_MEAL_SELECTION;
-      setMealSelection(EMPTY_MEAL_SELECTION);
-    }
     selectedRef.current = index;
     setSelected(index);
   }, []);
@@ -132,13 +86,10 @@ export function DayProvider({ children }: { children: ReactNode }) {
       selected,
       date: days[selected] ?? days[0],
       selectDate,
-      mealSelection: mealSelection.selection,
-      mealSelectionIsManual: mealSelection.manual,
-      selectMeal,
-      selectAutomaticMeal,
       nowMinutes,
+      openCount,
     }),
-    [days, selected, selectDate, mealSelection, selectMeal, selectAutomaticMeal, nowMinutes],
+    [days, selected, selectDate, nowMinutes, openCount],
   );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }
