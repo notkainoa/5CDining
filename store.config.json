@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.0",
+    "version": "1.0.1",
     "release": {
       "automaticRelease": true
     },
@@ -24,6 +24,7 @@
           "cafeteria",
           "5c"
         ],
+        "releaseNotes": "• Each dining hall now opens on the meal it's serving right now, or the next one coming up.\n• Menus you've looked at are saved on your phone, so they still show when you're offline.\n• Clearer messages when a menu isn't posted yet or a dining hall's site is down.",
         "promoText": "Today's menus for all seven Claremont Colleges dining halls, with dish search and diet and allergen filters.",
         "supportUrl": "https://5cdining.kainoa.me/support",
         "privacyPolicyUrl": "https://5cdining.kainoa.me/privacy"

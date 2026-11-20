@@ -3,7 +3,7 @@
     "name": "5C Dining",
     "slug": "5c-dining",
     "scheme": "dining5c",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon_main.png",
     "userInterfaceStyle": "automatic",
