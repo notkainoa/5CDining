@@ -98,8 +98,11 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   // while you stay here, even if the clock passes a meal's end time, and a
   // meal you pick from the menu holds until you leave.
   const isActive = activeKey === hallId;
+  const isToday = selected === 0;
   const selectedDate = formatYMDForApi(date);
-  const arrival = `${isActive}|${selectedDate}|${openCount}`;
+  // `isToday` is part of the key because at midnight the selected date can
+  // stay the same while it turns from tomorrow into today.
+  const arrival = `${isActive}|${selectedDate}|${isToday}|${openCount}`;
   const [view, setView] = useState(() => ({
     arrival,
     heldNow: isActive ? nowMinutes : null,
@@ -116,11 +119,11 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const mealIndex = useMemo(
     () =>
       mealIndexFor(meals, {
-        isToday: selected === 0,
+        isToday,
         nowMinutes: mealNow,
         pickedKey: view.pickedKey,
       }),
-    [meals, selected, mealNow, view.pickedKey],
+    [meals, isToday, mealNow, view.pickedKey],
   );
 
   const expandAllRef = useRef(expandAllDefault);
